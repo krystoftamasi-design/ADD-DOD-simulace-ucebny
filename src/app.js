@@ -46,9 +46,9 @@ const weave=meshCanvas.getContext('2d');weave.fillStyle='rgba(48,54,53,.35)';wea
 const meshTexture=new THREE.CanvasTexture(meshCanvas);meshTexture.wrapS=meshTexture.wrapT=THREE.RepeatWrapping;meshTexture.repeat.set(5,6);
 const meshMaterial=new THREE.MeshStandardMaterial({map:meshTexture,transparent:true,side:THREE.DoubleSide,roughness:1,depthWrite:false});
 function box(w,h,d,material,x,y,z,parent=scene){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh}
-box(14,.16,20,floor,0,-.09,-2);
+box(14,.16,24,floor,0,-.09,0);
 box(14,6,.15,wall,0,3,-11.95);
-box(.15,6,20,wall,-7,3,-2); box(.15,6,20,wall,7,3,-2);
+box(.15,6,24,wall,-7,3,0); box(.15,6,24,wall,7,3,0);
 // Relative size and placement inferred from the classroom photograph.
 const board = new THREE.Group();board.position.set(2.5,3.55,-11.82);scene.add(board);
 box(5,2.5,.045,mat('#fdfdfa'),0,0,0,board);
