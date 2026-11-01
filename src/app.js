@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { addTableProjector } from './projector.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -123,6 +124,7 @@ function createStation(item){
 }
 layout.forEach(createStation);
 [{x:-4.5,z:6},{x:-1.5,z:6}].forEach(createStation);
+addTableProjector(scene, -1.5, 6);
 let playing=true, speed=1, route=[1,2,3,4,5,6,7,8,9,10], progress=0, previous=performance.now();
 function round(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
 function renderScreens(time){

@@ -12,7 +12,7 @@ http.createServer(async (req, res) => {
   catch { res.writeHead(400).end(); return; }
   const relative = pathname === '/' ? 'index.html' : pathname.slice(1);
   const allowed = relative === 'index.html' ||
-    /^(src\/(app\.js|style\.css)|node_modules\/three\/(build\/(three\.module\.js|three\.core\.js)|examples\/jsm\/(controls\/OrbitControls\.js|geometries\/RoundedBoxGeometry\.js)))$/.test(relative);
+    /^(src\/(app\.js|projector\.js|style\.css)|node_modules\/three\/(build\/(three\.module\.js|three\.core\.js)|examples\/jsm\/(controls\/OrbitControls\.js|geometries\/RoundedBoxGeometry\.js)))$/.test(relative);
   if (!allowed || req.method !== 'GET') { res.writeHead(404).end(); return; }
   try {
     const body = await readFile(path.join(root, relative));

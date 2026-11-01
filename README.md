@@ -29,6 +29,8 @@ Macy jsou 1, 2, 5, 8. PC jsou 3, 4, 6, 7, 9, 10.
 PC stojí po dvojicích na spojených stolech 4–3, 7–6 a 10–9.
 Mezi PC a Macy vede průchozí ulička. Krajní desky sahají téměř ke stěnám.
 Vpředu před blokem PC jsou dvě spojené prázdné desky bez počítačů.
+Nad pravou z těchto dvou desek visí stropní projektor, který promítá
+výchozí uvítací obraz přímo na desku stolu.
 Rozměry a rozestupy jsou orientační, podle nákresu a fotografické reference.
 
 ## Sestavení a nasazení

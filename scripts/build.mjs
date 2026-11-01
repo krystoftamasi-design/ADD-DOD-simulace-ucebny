@@ -7,7 +7,7 @@ const html = (await readFile(new URL('index.html', root), 'utf8'))
   .replaceAll('./node_modules/three/examples/jsm/', './vendor/three/addons/')
   .replace('src/app.js', 'app.js').replace('src/style.css', 'style.css');
 await writeFile(new URL('index.html', out), html);
-for (const name of ['app.js', 'style.css']) {
+for (const name of ['app.js', 'projector.js', 'style.css']) {
   await copyFile(new URL('src/' + name, root), new URL(name, out));
 }
 for (const [source, target] of [
