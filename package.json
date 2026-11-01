@@ -1,0 +1,13 @@
+{
+  "name": "add-dod-simulace-ucebny",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Interaktivní 3D simulátor učebny pro den otevřených dveří.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": { "three": "0.187.0" }
+}
