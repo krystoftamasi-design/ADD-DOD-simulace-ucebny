@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { addTableProjector } from './projector.js';
+import { addTableProjector } from './projector.js?v=classroom-recovery-20261102';
+import { connectFlick } from './flick.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -68,11 +69,7 @@ const tvCable=new THREE.CatmullRomCurve3([
 scene.add(new THREE.Mesh(new THREE.TubeGeometry(tvCable,20,.012,6,false),dark));
 for (const z of [-8,-3,2,7]) { box(.08,2.6,3.2,edge,6.9,3.65,z); box(.04,2.35,2.96,mat('#c8d8da'),6.84,3.65,z); box(.08,.08,3.2,edge,6.8,2.4,z); box(.08,.08,3.2,edge,6.8,4.9,z); }
 const screens = new Map();
-const layout = [
- {id:1,type:'Mac',x:4.5,z:6},{id:2,type:'Mac',x:4.5,z:2},{id:3,type:'PC',x:-1.5,z:2},{id:4,type:'PC',x:-4.5,z:2},
- {id:5,type:'Mac',x:4.5,z:-2.5},{id:6,type:'PC',x:-1.5,z:-2.5},{id:7,type:'PC',x:-4.5,z:-2.5},
- {id:8,type:'Mac',x:4.5,z:-7},{id:9,type:'PC',x:-1.5,z:-7},{id:10,type:'PC',x:-4.5,z:-7}
-];
+const layout = window.DodTimeline.stations;
 function labelTexture(text, sub){const c=document.createElement('canvas');c.width=256;c.height=96;const x=c.getContext('2d');x.fillStyle='#ffffff';x.beginPath();x.roundRect(0,0,256,96,16);x.fill();x.fillStyle='#24322a';x.font='bold 40px system-ui';x.fillText(text,20,54);x.fillStyle='#8c9990';x.font='22px system-ui';x.fillText(sub,145,53);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
 function createStation(item){
  const g=new THREE.Group();g.position.set(item.x,0,item.z);scene.add(g);
@@ -124,29 +121,101 @@ function createStation(item){
 }
 layout.forEach(createStation);
 [{x:-4.5,z:6},{x:-1.5,z:6}].forEach(createStation);
-addTableProjector(scene, -1.5, 6);
-let playing=true, speed=1, route=[1,2,3,4,5,6,7,8,9,10], progress=0, previous=performance.now();
-function round(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
-function renderScreens(time){
- const segment=Math.floor(progress)%route.length, frac=progress%1;
- const from=route[segment], to=route[(segment+1)%route.length];
- for(const [id,s] of screens){
-  const c=s.canvas, ctx=c.getContext('2d');ctx.fillStyle='#111c27';ctx.fillRect(0,0,c.width,c.height);
-  ctx.fillStyle='#243342';round(ctx,22,21,170,20,10);ctx.fillStyle='#44596a';round(ctx,22,52,108,9,5);
-  let x=null,alpha=1;
-  if(id===from){x=75+frac*675;if(frac>.84)alpha=Math.max(0,(1-frac)/.16)}
-  if(id===to&&frac>.84){x=-110+(frac-.84)/.16*185;alpha=(frac-.84)/.16}
-  if(x!==null){const y=180-46*Math.sin(frac*Math.PI*2),r=57;ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='#d5f52b';ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();const blink=(time%3600)<180?Math.max(.08,Math.abs((time%3600)/180*2-1)):1;ctx.translate(x,y);ctx.scale(1,blink);for(const dx of [-21,21]){ctx.fillStyle='white';ctx.beginPath();ctx.ellipse(dx,0,17,22,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#080a08';ctx.beginPath();ctx.ellipse(dx+6,-7,11,14,-.4,0,Math.PI*2);ctx.fill()}ctx.restore()}
-  s.texture.needsUpdate=true;
- }
- document.querySelector('#current').textContent='Maskot · '+from+' → '+to;
+const standaloneState={mode:'animation',playing:true,elapsed:0,startAt:performance.now(),stepMs:2500,route:'all',order:layout.map(item=>item.id),experiment:false,proximity:{from:0,to:0,at:0,duration:120}};
+const elapsedAt=now=>standaloneState.playing?Math.max(0,now-standaloneState.startAt):standaloneState.elapsed;
+const tableProjector=addTableProjector(scene, -1.5, 6);
+connectFlick({onPosition:position=>{
+ tableProjector.setSensor(position);
+ const now=performance.now(),target=position?Math.max(0,Math.min(1,(75-position.z)/65)):0;
+ if(target!==standaloneState.proximity.to)standaloneState.proximity={from:window.DodTimeline.proximityAmount(standaloneState,now),to:target,at:now,duration:target===0?350:120};
+},onTouch:()=>tableProjector.startListening()});
+const projectionDialog=document.querySelector('#projection-preview');
+projectionDialog.append(tableProjector.canvas);
+function openProjection(){
+ if(projectionDialog.open)return;
+ tableProjector.setPointer(null);controls.enabled=false;projectionDialog.showModal();
+}
+document.querySelector('#projection-open').onclick=openProjection;
+document.querySelector('#projection-close').onclick=()=>projectionDialog.close();
+projectionDialog.addEventListener('close',()=>{controls.enabled=true;tableProjector.setPointer(null)});
+tableProjector.canvas.addEventListener('pointermove',event=>{
+ const canvas=tableProjector.canvas,rect=canvas.getBoundingClientRect();
+ const scale=Math.min(rect.width/canvas.width,rect.height/canvas.height);
+ const width=canvas.width*scale,height=canvas.height*scale;
+ const x=(event.clientX-rect.left-(rect.width-width)/2)/width;
+ const y=(event.clientY-rect.top-(rect.height-height)/2)/height;
+ tableProjector.setPointer(x>=0&&x<=1&&y>=0&&y<=1?{x,y:1-y}:null);
+});
+tableProjector.canvas.addEventListener('pointerleave',()=>tableProjector.setPointer(null));
+const raycaster=new THREE.Raycaster(), pointerPosition=new THREE.Vector2();
+function pointAt(event){
+ const rect=renderer.domElement.getBoundingClientRect();
+ pointerPosition.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+ raycaster.setFromCamera(pointerPosition,camera);
+ return raycaster.intersectObject(tableProjector.projection)[0];
+}
+renderer.domElement.addEventListener('pointermove',event=>{
+ const hit=pointAt(event);tableProjector.setPointer(hit?.uv || null);renderer.domElement.style.cursor=hit?'zoom-in':'';
+});
+renderer.domElement.addEventListener('pointerleave',()=>tableProjector.setPointer(null));
+let pointerDown;
+renderer.domElement.addEventListener('pointerdown',event=>{pointerDown={x:event.clientX,y:event.clientY}});
+renderer.domElement.addEventListener('pointerup',event=>{
+ const start=pointerDown;pointerDown=null;
+ if(!start||Math.hypot(event.clientX-start.x,event.clientY-start.y)>5)return;
+ if(pointAt(event))openProjection();
+});
+renderer.domElement.addEventListener('pointercancel',()=>{pointerDown=null});
+function refreshControls(client){
+ const connected=client.connected,state=connected?client.state():standaloneState,count=client.roster?.length||0;
+ document.querySelector('#room-status').textContent=connected?'Učebna · '+count+' obrazovek · '+client.roster.filter(item=>item.station).length+' přiřazeno':'Samostatný náhled';
+ document.querySelector('#room-identify').disabled=!connected;
+ if(!state)return;
+ document.querySelector('#play').textContent=state.playing?'Pozastavit':'Spustit';
+ document.querySelector('#room-identify').textContent=state.mode==='identify'?'Skrýt čísla':'Čísla na obrazovkách';
+ document.querySelector('#room-experiment').textContent=state.experiment?'Vypnout množení kuliček':'Zapnout množení kuliček';
+ document.querySelector('#route').value=state.route;
+ document.querySelector('#speed').value=2500/state.stepMs;
+ document.querySelector('#speed-value').textContent=(2500/state.stepMs)+'×';
+}
+// The public HTTPS preview runs independently; LAN control is available on this Mac.
+const localControl=location.protocol==='http:'&&['127.0.0.1','localhost'].includes(location.hostname);
+const room=localControl?new window.DodRoom({role:'control',url:'ws://127.0.0.1:8000/room/ws',onChange:refreshControls}):{connected:false};
+refreshControls(room);
+function renderScreens(now){
+ const state=room.connected&&room.state()?room.state():standaloneState;
+ const serverTime=room.connected?room.time(now):now;
+ if(serverTime===null)return;
+ // With no classroom screens online, keep the local scene animated for preview.
+ const viewState=state.order.length?state:{...state,order:state.route==='pair'?[8,7]:layout.map(item=>item.id)};
+ for(const [id,screen] of screens){window.DodTimeline.draw(screen.canvas.getContext('2d'),screen.canvas.width,screen.canvas.height,id,viewState,serverTime);screen.texture.needsUpdate=true;}
 }
 function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
 new ResizeObserver(resize).observe(host);resize();
-function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-previous)/1000,.1);previous=now;if(playing)progress+=dt*speed/2.5;renderScreens(progress*2500);controls.update();renderer.render(scene,camera)}
+function animate(now){requestAnimationFrame(animate);renderScreens(now);tableProjector.update(now);if(!projectionDialog.open){controls.update();renderer.render(scene,camera)}}
 document.querySelector('#loading').remove();requestAnimationFrame(animate);
-document.querySelector('#play').onclick=(e)=>{playing=!playing;e.currentTarget.textContent=playing?'Pozastavit':'Spustit'};
-document.querySelector('#speed').oninput=(e)=>{speed=Number(e.target.value);document.querySelector('#speed-value').textContent=speed+'×'};
-document.querySelector('#route').onchange=(e)=>{route=e.target.value==='pair'?[8,7]:[1,2,3,4,5,6,7,8,9,10];progress=0};
-function setView(top){camera.position.set(...(top?[0,20,4]:eyePosition.toArray()));controls.target.copy(top?new THREE.Vector3(0,0,-2):eyeTarget);controls.update();document.querySelector('#top').classList.toggle('active',top);document.querySelector('#eye').classList.toggle('active',!top)}
+document.querySelector('#play').onclick=()=>{
+ if(room.connected){room.command(room.state().playing?'pause':'play',{});return;}
+ const now=performance.now();standaloneState.elapsed=elapsedAt(now);standaloneState.startAt=now-standaloneState.elapsed;standaloneState.playing=!standaloneState.playing;refreshControls(room);
+};
+document.querySelector('#speed').oninput=event=>{
+ const value=Number(event.target.value);
+ if(room.connected){room.command('speed',{value});return;}
+ const now=performance.now(),progress=elapsedAt(now)/standaloneState.stepMs;
+ standaloneState.stepMs=2500/value;standaloneState.elapsed=progress*standaloneState.stepMs;standaloneState.startAt=now-standaloneState.elapsed;refreshControls(room);
+};
+document.querySelector('#route').onchange=event=>{
+ const value=event.target.value;
+ if(room.connected){room.command('route',{value});return;}
+ standaloneState.route=value;standaloneState.order=value==='pair'?[8,7]:layout.map(item=>item.id);standaloneState.elapsed=0;standaloneState.startAt=performance.now();refreshControls(room);
+};
+function setView(top){camera.position.set(...(top?[0,20,4]:eyePosition.toArray()));controls.target.copy(top?new THREE.Vector3(0,0,-2):eyeTarget);controls.update();document.querySelector('#top').classList.toggle('active',top);document.querySelector('#eye').classList.toggle('active',!top);document.querySelector('#table-view').classList.remove('active')}
 document.querySelector('#reset').onclick=()=>setView(false);document.querySelector('#eye').onclick=()=>setView(false);document.querySelector('#top').onclick=()=>setView(true);
+
+document.querySelector('#table-view').onclick=()=>{camera.position.set(-1.5,5.2,10.4);controls.target.set(-1.5,1.5,6);controls.update();document.querySelector('#eye').classList.remove('active');document.querySelector('#top').classList.remove('active');document.querySelector('#table-view').classList.add('active')};
+
+document.querySelector('#room-identify').onclick=()=>{if(room.connected)room.command('identify',{enabled:room.state().mode!=='identify'})};
+document.querySelector('#room-experiment').onclick=()=>{
+ if(room.connected){room.command('experiment',{enabled:!room.state().experiment});return;}
+ standaloneState.experiment=!standaloneState.experiment;refreshControls(room);
+};

@@ -1,4 +1,40 @@
-<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Učebna · simulátor maskota</title><link rel="stylesheet" href="src/style.css">
-<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head>
-<body><div class="shell"><aside><div class="brand"><span class="brand-icon">✳</span><span>DOD / LABORATOŘ</span></div><div class="intro"><p class="eyebrow">INTERAKTIVNÍ NÁHLED</p><h1>Učebna<br><em>ožívá.</em></h1><p>Prohlédni si pohyb maskota na deseti obrazovkách podle nákresu učebny.</p></div>
-<div class="rule"></div><div class="section-title">SIMULACE <span class="live"><i></i> ŽIVĚ</span></div><label>Trasa maskota<select id="route"><option value="all">Všech 10 obrazovek · 1 → 10</option><option value="pair">Dvě obrazovky · 8 ↔ 7</option></select></label><label>Rychlost <span id="speed-value">1×</span><input id="speed" type="range" min="0.5" max="2" step="0.25" value="1"></label><div class="buttons"><button id="play">Pozastavit</button><button id="reset">Výchozí pohled</button></div><div class="rule"></div><div class="section-title">ROZMÍSTĚNÍ</div><div class="legend"><span><i class="dot lime"></i> Mac <b>1 · 2 · 5 · 8</b></span><span><i class="dot blue"></i> PC <b>3 · 4 · 6 · 7 · 9 · 10</b></span></div><p class="foot">Rozměry a rozestupy jsou orientační. Uspořádání odpovídá nákresu.</p></aside><main><header><div><span class="eyebrow">PROSTOROVÁ SIMULACE</span><h2>Učebna <span>/ pohled návštěvníka</span></h2></div><div class="view-controls"><button id="eye" class="active">Od návštěvníka</button><button id="top">Nadhled</button></div></header><div id="scene"><div class="loading" id="loading">Připravuji učebnu…</div><div class="hint"><span>↔</span> Tažením otáčej · kolečkem přibližuj</div><div class="scene-badge"><i></i> <span id="current">Připravuji animaci</span></div></div><footer><span><b>10</b> obrazovek</span><span><b>4</b> Macy</span><span><b>6</b> PC</span><span class="footer-note">Interaktivní náhled animace</span></footer></main></div><script type="module" src="src/app.js"></script></body></html>
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Učebna · simulátor maskota</title>
+  <link rel="stylesheet" href="src/style.css?v=classroom-recovery-20261102">
+  <script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head>
+<body>
+  <main>
+    <div id="scene"><div class="loading" id="loading">Připravuji učebnu…</div></div>
+    <details class="controls">
+      <summary><span aria-hidden="true">☰</span> Ovládání</summary>
+      <div class="controls-panel">
+        <label for="route">Trasa maskota</label>
+        <select id="route"><option value="all">Všech 10 obrazovek · 1 → 10</option><option value="pair">Dvě obrazovky · 8 ↔ 7</option></select>
+        <label for="speed">Rychlost <span id="speed-value">1×</span></label>
+        <input id="speed" type="range" min="0.5" max="2" step="0.25" value="1">
+        <div class="buttons"><button id="play">Pozastavit</button><button id="reset">Výchozí pohled</button></div>
+        <div class="view-controls" aria-label="Pohled"><button id="eye" class="active">Od návštěvníka</button><button id="top">Nadhled</button></div>
+        <button id="table-view" class="table-view">Projekční stůl</button>
+        <button id="projection-open" class="table-view">Zvětšit projekci</button>
+        <div class="flick-controls"><button id="room-identify">Čísla na obrazovkách</button><button id="room-experiment" class="table-view">Množení kuliček</button><p id="room-status" role="status">Připojuji obrazovky v učebně…</p></div>
+        <div class="flick-controls">
+          <button id="flick-connect">Připojit Flick</button>
+          <p id="flick-status" role="status">Flick odpojen</p>
+          <a id="flick-local" href="http://127.0.0.1:8765/" hidden>Otevřít s Flickem lokálně</a>
+        </div>
+      </div>
+    </details>
+    <dialog id="projection-preview" aria-label="Promítaná plocha">
+      <button id="projection-close" aria-label="Zavřít promítanou plochu" title="Zavřít (Esc)">×</button>
+    </dialog>
+  </main>
+  <script src="classroom/timeline.js"></script>
+  <script src="classroom/sync.js"></script>
+  <script type="module" src="src/app.js?v=classroom-recovery-20261102"></script>
+</body>
+</html>

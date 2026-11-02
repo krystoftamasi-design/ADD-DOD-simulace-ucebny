@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Interaktivní 3D simulátor učebny pro den otevřených dveří.",
-  "engines": { "node": ">=22" },
+  "description": "Interaktivn\u00ed 3D simul\u00e1tor u\u010debny pro den otev\u0159en\u00fdch dve\u0159\u00ed.",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "classroom": "node scripts/classroom.mjs",
+    "test": "node --test scripts/*.test.mjs classroom/*.test.mjs && python3 -m unittest discover -s scripts -p test_*.py"
   },
-  "dependencies": { "three": "0.187.0" }
+  "dependencies": {
+    "three": "0.187.0",
+    "ws": "8.22.1"
+  }
 }
