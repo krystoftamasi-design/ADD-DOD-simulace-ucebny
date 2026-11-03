@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Průvodce studentskými pracemi</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="guide-page">
+  <main>
+    <header><a class="brand" href="./">● <span>PRŮVODCE / LAB</span></a><a href="/slepe-hodnoceni" target="_blank" rel="noopener" onclick="window.open(this.href, 'hodnoceni', 'popup,width=1100,height=900,noopener');return false">Slepé hodnocení ↗</a><a href="/admin">Správa prací</a></header>
+    <section class="voice-panel" aria-label="Požadavek návštěvníka">
+      <div class="voice-heading"><div><h1>Jaké práce chceš vidět?</h1></div></div>
+      <form id="request-form"><label class="visually-hidden" for="request-text">Jaké práce chceš vidět?</label><textarea id="request-text" rows="2" maxlength="2000" placeholder="Ukaž mi nějaké 3D práce." required></textarea><div class="request-actions"><button id="submit-request" class="primary" type="submit">Ukázat práci</button></div></form>
+      <p class="interest-hint">Řekni vlastními slovy, co tě zajímá. Níže jsou oblasti a další možnosti, podle kterých zatím hledám.</p><div class="category-details" aria-label="Oblasti a možnosti výběru"><div id="category-list" aria-label="Dostupné kategorie"></div><div class="other-tags" aria-label="Další možnosti"><span>Rok</span><span>Nejlepší</span><span>Nejhorší</span></div></div><p id="request-result" class="request-result" role="status" aria-live="polite"></p>
+      <div id="feedback" hidden><button id="feedback-confirm" type="button">Tag sedí</button> <button id="feedback-open" type="button">Tag je špatně</button> <button id="feedback-missing" type="button" hidden>Chybí druhý tag</button><form id="feedback-missing-form" hidden><label for="feedback-missing-category">Chybějící tag</label> <select id="feedback-missing-category" required></select> <button type="submit">Uložit opravu</button></form><form id="feedback-form" hidden><label for="feedback-category">Správný tag</label> <select id="feedback-category" required></select> <label for="feedback-second">Druhý tag (volitelně)</label> <select id="feedback-second"></select> <button type="submit">Uložit opravu</button></form><p id="feedback-status" role="status" aria-live="polite"></p></div>
+    </section>
+    <section id="selected-work" class="selected-work" hidden aria-label="Vybraná studentská práce">
+      <article class="admin-work selected-work-card"><div class="admin-info"><h2></h2><p class="admin-meta"></p><p class="work-description"></p><p class="selected-work-tag"></p></div><aside class="work-gallery"><h3></h3><div class="work-gallery-grid"></div></aside></article>
+    </section>
+    <section class="animation-details" aria-labelledby="simulation-title"><h2 id="simulation-title" class="visually-hidden">Simulace průvodce</h2>
+    <section class="workspace" aria-label="Simulace dvou displejů">
+      <div class="screen-labels"><span><i></i> DISPLEJ 01 <small>Vstupní stanice</small></span><span><i></i> DISPLEJ 02 <small>Studentské práce</small></span></div>
+      <div class="stage"><div class="divider"></div><canvas id="scene" aria-label="Animovaná kulička ve dvou simulovaných displejích"></canvas><div id="project" class="project" hidden><span class="project-tag">UKÁZKOVÝ OBSAH / 3D</span><div class="sculpture">◇</div><h2>Prostor pro studentskou práci</h2><p>Sem se později načte skutečný projekt.</p></div><div class="stage-captions"><span>Řekni, co tě zajímá.</span><span>Objev, co tvoříme.</span></div></div>
+    </section>
+    <div id="manager-animation" hidden><section class="controls"><div class="status"><span id="status-dot"></span><div><span class="eyebrow">AKTUÁLNÍ STAV</span><p id="status" role="status" aria-live="polite">Čeká na návštěvníka</p></div></div><div class="buttons" aria-label="Animace"><button data-state="idle" aria-pressed="true">Čekání</button><button data-state="listening" aria-pressed="false">Naslouchání</button><button data-state="thinking" aria-pressed="false">Přemýšlení</button><button data-state="flying" aria-pressed="false">Přelet</button><button data-state="presenting" aria-pressed="false">Ukázání práce</button></div><button id="demo" class="primary">Přehrát scénář <span>↗</span></button></section>
+    <div class="transcript" id="transcript" aria-live="polite">Zkus jednotlivé stavy nebo přehraj celý scénář.</div>
+    </div>
+    </section>
+    <button id="manager-toggle" type="button" aria-expanded="false" aria-controls="manager-tools manager-animation">Manažer</button>
+    <div id="manager-tools" hidden>
+    <section class="voice-panel manager-model"><label for="model-select">Model</label> <select id="model-select"><option value="">Načítám modely…</option></select> <button id="refresh-models" type="button">Obnovit modely</button><p id="connection-status" role="status" aria-live="polite"></p><p><a href="/tester-rozhodovani">Otevřít tester rozhodování</a></p></section>
+    <section class="decision-panel" aria-labelledby="decision-title">
+      <div class="voice-heading"><div><h2 id="decision-title">Jak rozhodl Tev1</h2></div><div class="decision-header-actions"><span id="decision-phase" role="status" aria-live="polite">Čeká na požadavek</span><button id="toggle-dashboard" type="button" aria-expanded="false" aria-controls="decision-body">Zobrazit podrobnosti ↓</button></div></div>
+      <div id="decision-body" hidden>
+      <p class="decision-help">Přehled rozpoznaných tagů a textového hledání. Skóre modelu není pravděpodobností správného výsledku.</p>
+      <div class="decision-summary" aria-label="Přehled výběru">
+        <div><span>Vybrané obory</span><strong id="inspect-selected-tags">—</strong></div>
+        <div><span>Hledané téma</span><strong id="inspect-topic">—</strong></div>
+        <div><span>Další podmínky</span><strong id="inspect-filters">—</strong></div>
+        <div><span>Výsledek hledání</span><strong id="inspect-result">—</strong></div>
+      </div>
+      <div class="decision-grid"><div><div class="decision-metrics"><div><span>MODEL</span><strong id="inspect-model">—</strong></div><div><span>ČAS SERVERU</span><strong id="inspect-time">—</strong></div><div><span>KONCENTRACE SKÓRE TÉMATU</span><strong id="inspect-confidence">—</strong></div><div><span>TOKENY PRVNÍHO DOTAZU</span><strong id="inspect-tokens">—</strong></div></div><p class="eyebrow">VSTUP NÁVŠTĚVNÍKA</p><blockquote id="inspect-input">Odešli požadavek výše.</blockquote><p id="inspect-outcome" aria-live="polite">Zatím žádné rozhodnutí.</p><div class="decision-details"><details><summary>Co přesně posíláme modelu</summary><pre id="inspect-request">—</pre></details><details><summary>Úplná odpověď modelu</summary><pre id="inspect-response">—</pre></details><details id="inspect-topic-details" hidden><summary>Výběr hlavního tématu: dotaz a odpověď</summary><pre id="inspect-topic-exchange">—</pre></details></div></div><div><p class="eyebrow">SKÓRE OBOROVÝCH TAGŮ</p><div id="inspect-scores"><p class="decision-help">Tev1 vrátí skóre po dokončení požadavku. Během zpracování je API nestreamuje.</p></div></div></div>
+      <div class="decision-history-heading"><p class="eyebrow">POSLEDNÍ POŽADAVKY · POUZE V TOMTO OKNĚ</p><button id="clear-history" type="button">Vymazat historii</button></div><div id="decision-history"><p class="decision-help">Historie je prázdná.</p></div>
+      </div>
+    </section>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -49,3 +49,7 @@ npm run build
 Vývojový náhled je na http://127.0.0.1:5173/. `dist/` obsahuje samostatný statický web včetně Three.js a jeho licence MIT. Zdroj scény je `src/app.js`, projekce `src/projector.js`, rozhraní `index.html` a `src/style.css`. Sdílená animace monitorů je `classroom/timeline.js`, synchronizace `classroom/sync.js`, server `classroom/server.mjs`. USB bridge je `scripts/flick_bridge.py`.
 
 Veřejná HTTPS verze běží jako samostatný náhled, neotevírá řídicí WebSocket do lokální sítě. Flick lze zkusit připojit tlačítkem; pokud prohlížeč přístup k lokálnímu bridge nepovolí, otevři místní adresu 8765. Samotný push do GitHubu veřejný web neaktualizuje; publikuje se samostatně přes Sites.
+
+## Průvodce studentskými pracemi
+
+Samostatný průvodce včetně správy, slepého hodnocení a testeru rozhodování je v podsložce [`pruvodce/`](pruvodce/README.md); studentská data a obrázky nejsou součástí repozitáře.
