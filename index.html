@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Učebna · simulátor maskota</title>
-  <link rel="stylesheet" href="src/style.css?v=classroom-recovery-20261102">
+  <link rel="stylesheet" href="src/style.css?v=monitor-20261103">
   <script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
 </head>
 <body>
@@ -21,7 +21,7 @@
         <div class="view-controls" aria-label="Pohled"><button id="eye" class="active">Od návštěvníka</button><button id="top">Nadhled</button></div>
         <button id="table-view" class="table-view">Projekční stůl</button>
         <button id="projection-open" class="table-view">Zvětšit projekci</button>
-        <div class="flick-controls"><button id="room-identify">Čísla na obrazovkách</button><button id="room-experiment" class="table-view">Množení kuliček</button><p id="room-status" role="status">Připojuji obrazovky v učebně…</p></div>
+        <div class="flick-controls"><label class="simulate-toggle"><input id="simulate-all" type="checkbox"> Simulovat všechny počítače</label><button id="room-identify">Čísla na obrazovkách</button><button id="room-experiment" class="table-view">Množení kuliček</button><p id="room-status" role="status">Připojuji obrazovky v učebně…</p></div>
         <div class="flick-controls">
           <button id="flick-connect">Připojit Flick</button>
           <p id="flick-status" role="status">Flick odpojen</p>
@@ -35,6 +35,6 @@
   </main>
   <script src="classroom/timeline.js"></script>
   <script src="classroom/sync.js"></script>
-  <script type="module" src="src/app.js?v=classroom-recovery-20261102"></script>
+  <script type="module" src="src/app.js?v=monitor-20261103"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addTableProjector } from './projector.js?v=classroom-recovery-20261102';
+import { addTableProjector } from './projector.js?v=monitor-20261103';
 import { connectFlick } from './flick.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -180,15 +180,23 @@ function refreshControls(client){
 }
 // The public HTTPS preview runs independently; LAN control is available on this Mac.
 const localControl=location.protocol==='http:'&&['127.0.0.1','localhost'].includes(location.hostname);
+const simulateAll=document.querySelector('#simulate-all');
+simulateAll.checked=!localControl;
 const room=localControl?new window.DodRoom({role:'control',url:'ws://127.0.0.1:8000/room/ws',onChange:refreshControls}):{connected:false};
 refreshControls(room);
 function renderScreens(now){
- const state=room.connected&&room.state()?room.state():standaloneState;
- const serverTime=room.connected?room.time(now):now;
+ const connected=room.connected&&room.state();
+ const state=connected?room.state():standaloneState;
+ const serverTime=connected?room.time(now):now;
  if(serverTime===null)return;
- // With no classroom screens online, keep the local scene animated for preview.
- const viewState=state.order.length?state:{...state,order:state.route==='pair'?[8,7]:layout.map(item=>item.id)};
- for(const [id,screen] of screens){window.DodTimeline.draw(screen.canvas.getContext('2d'),screen.canvas.width,screen.canvas.height,id,viewState,serverTime);screen.texture.needsUpdate=true;}
+ const viewState=simulateAll.checked?{...state,order:state.route==='pair'?[8,7]:layout.map(item=>item.id)}:state;
+ const online=new Set(connected?room.roster.filter(item=>item.visible&&item.station).map(item=>item.station):[]);
+ for(const [id,screen] of screens){
+  const ctx=screen.canvas.getContext('2d');
+  if(!simulateAll.checked&&!online.has(id)){ctx.fillStyle='#080d10';ctx.fillRect(0,0,screen.canvas.width,screen.canvas.height);}
+  else window.DodTimeline.draw(ctx,screen.canvas.width,screen.canvas.height,id,viewState,serverTime);
+  screen.texture.needsUpdate=true;
+ }
 }
 function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
 new ResizeObserver(resize).observe(host);resize();
