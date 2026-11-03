@@ -4,6 +4,7 @@ let workIndex = 0;
 let imageIndex = 0;
 let galleryImages = [];
 let lastWheelChange = 0;
+let imageRequest = 0;
 
 function clean(value) {
   if (typeof value !== 'string') return '';
@@ -24,16 +25,21 @@ function visibleImages(work) {
 function renderImage() {
   const image = galleryImages[imageIndex];
   if (!image) return;
+  const request = ++imageRequest;
+  const number = imageIndex + 1;
   const hero = elements['hero-image'];
   hero.classList.add('is-changing');
   const nextSource = new Image();
   nextSource.onload = () => {
+    if (request !== imageRequest) return;
+    elements.status.textContent = '';
     hero.src = image.url;
-    hero.alt = `${elements['work-title'].textContent} — fotografie ${imageIndex + 1}`;
+    hero.alt = `${elements['work-title'].textContent} — fotografie ${number}`;
     hero.classList.add('is-ready');
     hero.classList.remove('is-changing');
   };
   nextSource.onerror = () => {
+    if (request !== imageRequest) return;
     hero.classList.remove('is-changing');
     elements.status.textContent = 'Fotografii se nepodařilo načíst.';
   };
