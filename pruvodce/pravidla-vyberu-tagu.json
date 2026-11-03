@@ -1,0 +1,6 @@
+{
+  "version": "rozliseni-web-aplikace-ux-v6",
+  "primaryThreshold": 0.5,
+  "threshold": 0.5,
+  "maxTags": 2
+}

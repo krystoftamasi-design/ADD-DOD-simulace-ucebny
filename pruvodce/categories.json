@@ -1,0 +1,74 @@
+{
+  "categories": [
+    {
+      "id": "web-ui-ux",
+      "name": "UX design",
+      "description": "Návrh a ověřování toho, jak lidé produkt nebo službu používají: jejich potřeby, srozumitelnost, snadné ovládání a přístupnost.",
+      "examples": "Uživatelský výzkum, rozhovory s uživateli, testování použitelnosti, zjednodušení ovládání, návrh uživatelských průchodů nebo přístupnosti.",
+      "boundary": "Vyber při výslovném zájmu o potřeby uživatelů, ovládání, použitelnost, UX nebo přístupnost. Samotná aplikace, web, logo ani hezký vzhled obrazovek UX neznamenají. UX neznamená automaticky aplikaci ani web a může řešit i fyzickou službu. Další tag přidej pouze podle toho, co návštěvník opravdu požaduje."
+    },
+    {
+      "id": "information-design",
+      "name": "design informací",
+      "description": "Návrh způsobu, jak uspořádat a srozumitelně předat informace, data nebo pokyny.",
+      "examples": "Infografika, datová vizualizace, mapa, orientační systém nebo přehledné vysvětlení složitého tématu.",
+      "boundary": "Běžný text, navigace nebo seznam údajů v práci sám o sobě nestačí, pokud jejich srozumitelné zpracování není podstatnou součástí návrhu."
+    },
+    {
+      "id": "3d-vr-ar",
+      "name": "3D / VR / AR",
+      "description": "Práce založená na trojrozměrné tvorbě, virtuální realitě nebo rozšířené realitě.",
+      "examples": "3D model nebo prostředí, prostorová vizualizace, virtuální prohlídka nebo aplikace s rozšířenou realitou.",
+      "boundary": "Samotný prostorový vzhled dvourozměrné grafiky nestačí, pokud práce skutečně nevyužívá 3D, VR nebo AR."
+    },
+    {
+      "id": "motion-video",
+      "name": "motion design / video",
+      "description": "Práce, v níž je podstatnou součástí pohyb, animace nebo audiovizuální zpracování.",
+      "examples": "Animovaná grafika, titulková sekvence, krátký film, videoesej nebo pohybová prezentace vizuálního stylu.",
+      "boundary": "Samotné video zaznamenávající či propagující jinou práci nestačí, pokud není pohyb nebo audiovizuální tvorba součástí jejího návrhu."
+    },
+    {
+      "id": "visual-identity",
+      "name": "vizuální styl",
+      "description": "Návrh ucelené vizuální identity nebo jednotného grafického vzhledu značky, události, instituce či projektu.",
+      "examples": "Logo a jeho použití, vizuální identita festivalu, grafický systém nebo soubor sjednocených propagačních materiálů.",
+      "boundary": "Každá práce má nějaký vzhled, ale tento tag patří těm, které vizuální podobu nebo identitu záměrně navrhují jako podstatnou část výsledku."
+    },
+    {
+      "id": "typography",
+      "name": "typografie",
+      "description": "Práce, v níž je podstatným tématem tvorba, úprava nebo výrazné výtvarné zpracování písma a sazby.",
+      "examples": "Návrh písma, typografický plakát, experiment s písmem nebo publikace zaměřená na typografickou sazbu.",
+      "boundary": "Běžné použití či výběr existujícího písma sám o sobě nestačí, pokud typografie není významným předmětem návrhu."
+    },
+    {
+      "id": "illustration",
+      "name": "ilustrace",
+      "description": "Práce, v níž jsou podstatnou součástí autorské obrazové motivy vytvořené k vyjádření myšlenky, příběhu nebo tématu.",
+      "examples": "Knižní ilustrace, autorské kresby, ilustrace postav nebo ilustrovaný vizuální příběh.",
+      "boundary": "Použití fotografie, jednoduché ikony nebo převzatého obrázku samo o sobě nestačí, pokud práce není založená na ilustraci."
+    },
+    {
+      "id": "experiment",
+      "name": "experiment",
+      "description": "Práce, jejímž významným cílem je zkoumat neobvyklý postup, médium, technologii nebo způsob vyjádření.",
+      "examples": "Výzkum netradičního materiálu, generativní vizuální experiment nebo zkoumání nového způsobu interakce.",
+      "boundary": "Tag může zahrnovat i neobvyklé zpracování tématu nebo nápadité využití technologie, pokud je z práce patrný objevný či experimentální přístup."
+    },
+    {
+      "id": "applications",
+      "name": "aplikace",
+      "description": "Návrh nebo tvorba samostatné aplikace pro mobil, tablet, počítač nebo nositelné zařízení.",
+      "examples": "Mobilní aplikace pro Android nebo iOS, aplikace pro tablet, desktopový program, softwarový plugin nebo aplikace pro chytré hodinky.",
+      "boundary": "Weby, microsite, portály a aplikace fungující pouze v prohlížeči patří do tagu web; interaktivita, animace ani herní prvky webu samy o sobě nejsou podkladem pro tag aplikace a zmínka o nástroji použitém při tvorbě také nestačí."
+    },
+    {
+      "id": "web",
+      "name": "web",
+      "description": "Návrh nebo tvorba webových stránek a obsahu určeného pro prohlížeč: webové prezentace, portfolia, internetového obchodu nebo webového portálu.",
+      "examples": "Webové stránky školy, osobní portfolio na webu, web festivalu, internetový obchod nebo výslovně webová aplikace.",
+      "boundary": "Mobilní nebo desktopová aplikace bez webové části nestačí; grafika pouze zveřejněná na internetu není návrhem webu a UX přidej jen při doloženém zaměření na potřeby uživatelů nebo použitelnost."
+    }
+  ]
+}

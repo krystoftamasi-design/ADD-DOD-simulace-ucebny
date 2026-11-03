@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slepé hodnocení tagů</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+main{max-width:1050px}header{gap:20px}h1{font-size:clamp(28px,5vw,44px)}.review-text{font-size:24px;line-height:1.5;margin:24px 0;padding:24px;border-left:4px solid #567942;background:#f0f4eb}fieldset{border:0;padding:0;margin:20px 0}.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}.choice{border:1px solid #cbd5c4;border-radius:10px;padding:16px}.choice:has(input:checked){background:#e8f1de;border-color:#567942}.choice label{display:flex;gap:10px;font-weight:700;cursor:pointer}.choice input{width:18px;height:18px;flex-shrink:0}.choice p,.choice details{font-size:14px;line-height:1.5;margin:10px 0 0}.choice summary{cursor:pointer}textarea{width:100%;box-sizing:border-box;margin:8px 0 16px}button{margin-right:10px}#comparison{padding:20px;background:#edf3e7;border-radius:10px;margin-top:24px}#message{min-height:24px}button:disabled{opacity:.5}#progress{color:#58634f}@media(max-width:640px){.choices{grid-template-columns:1fr}}
+</style>
+<main>
+<header><a class="brand" href="/">● PRŮVODCE / LAB</a><a href="/admin">Správa prací</a></header>
+<h1>Slepé hodnocení tagů</h1>
+<p>Vyber nejvýše dva tagy podle věty a definic; výsledek modelu a původní syntetický návrh uvidíš až po uložení.</p>
+<button id="filter" type="button" aria-pressed="false">Zobrazit jen neshody</button>
+<p id="filter-help" hidden>Vybírá věty, kde se tagy nebo způsob hledání liší od syntetického návrhu; ten může být chybný a výsledek uvidíš až po uložení.</p>
+<p id="progress"></p>
+<form id="review" hidden>
+<blockquote class="review-text" id="sentence"></blockquote>
+<fieldset id="tags"><legend>Jaké obory návštěvník požaduje?</legend><div class="choices" id="choices"></div>
+<p><label><input type="checkbox" id="none"> Žádný oborový tag (i při samotném požadavku na kvalitu nebo rok)</label></p></fieldset>
+<p><label><input type="checkbox" id="ambiguous"> Věta je nejednoznačná nebo ji nelze označit nejvýše dvěma tagy</label></p>
+<label for="note">Poznámka <span id="note-help">(volitelná)</span></label>
+<textarea id="note" rows="2" maxlength="2000"></textarea>
+<button class="primary" id="save" type="submit" disabled>Uložit a zobrazit srovnání</button>
+</form>
+<p role="status" aria-live="polite" id="message">Načítám…</p>
+<section id="comparison" hidden aria-label="Srovnání po uložení"><h2>Hodnocení je uložené</h2><p id="human"></p><p id="model"></p><p id="search-result" hidden></p><p id="synthetic"></p><p id="match"></p><button id="next" type="button">Další věta</button></section>
+<section style="margin-top:48px;border-top:1px solid #cbd5c4;padding-top:20px" aria-labelledby="manual-title">
+<h2 id="manual-title">Vlastní věta a tagy</h2>
+<p>Napiš vlastní požadavek a přiřaď mu jeden nebo dva tagy; uloží se jako lidský příklad.</p>
+<form id="manual-form"><label for="manual-text">Tvoje věta</label><textarea id="manual-text" rows="3" maxlength="2000" required></textarea>
+<fieldset><legend>Správné tagy (jeden nebo dva)</legend><div id="manual-tags" class="choices"></div></fieldset>
+<button id="manual-save" class="primary" type="submit" disabled>Uložit vlastní příklad</button></form>
+<p id="manual-message" role="status" aria-live="polite"></p>
+</section>
+</main>
+<script type="module">
+const $ = id => document.getElementById(id);
+let state, locked = false, onlyDisagreements = false;
+const drafts = new Map();
+let manualInitialized = false, manualBusy = false;
+function validateManual() {
+ const boxes = [...document.querySelectorAll('[name=manual-tag]')];
+ const count = boxes.filter(b => b.checked).length;
+ boxes.forEach(b => b.disabled = manualBusy || (!b.checked && count >= 2));
+ $('manual-save').disabled = manualBusy || !count || !$('manual-text').value.trim();
+}
+const boxes = () => [...document.querySelectorAll('[name=tag]')];
+const names = ids => ids.map(id => state.categories.find(c => c.id === id)?.name ?? id).join(', ') || 'žádný';
+async function api(options) {
+ const response = await fetch('/api/blind-review' + (options ? '' : onlyDisagreements ? '?filter=neshody' : ''), options);
+ const data = await response.json();
+ if (!response.ok) throw new Error(data.error || 'Požadavek se nepodařil.');
+ return data;
+}
+function validate() {
+ const chosen = boxes().filter(b => b.checked);
+ const uncertain = $('ambiguous').checked;
+ for (const b of boxes()) b.disabled = locked || (!b.checked && chosen.length >= 2);
+ $('note').required = uncertain;
+ $('note-help').textContent = uncertain ? '(uveď důvod)' : '(volitelná)';
+ $('save').disabled = locked || (!uncertain && !chosen.length && !$('none').checked) || (uncertain && !$('note').value.trim());
+}
+async function load() {
+ if (state?.item && !$('review').hidden) drafts.set(state.item.id, { tags: boxes().filter(b => b.checked).map(b => b.value), none: $('none').checked, ambiguous: $('ambiguous').checked, note: $('note').value });
+ $('review').hidden = true; $('comparison').hidden = true; $('message').textContent = 'Načítám…';
+ try {
+  state = await api(); locked = false;
+  if (!manualInitialized) {
+   for (const c of state.categories) {
+    const label = document.createElement('label'); label.className = 'choice';
+    const box = document.createElement('input'); box.type = 'checkbox'; box.name = 'manual-tag'; box.value = c.id;
+    label.append(box, document.createTextNode(' ' + c.name)); $('manual-tags').append(label);
+    box.addEventListener('change', validateManual);
+   }
+   manualInitialized = true;
+  }
+  $('progress').textContent = state.source ? `Uloženo ${state.reviewed} z ${state.total} ${onlyDisagreements ? 'neshod' : 'vět'} · ${state.source}` : '';
+  if (!state.item) { $('message').textContent = state.source ? (onlyDisagreements ? 'Žádné další neshody k hodnocení.' : 'Všechny věty této sady jsou ohodnocené.') : 'Zatím není k dispozici dokončený test bez technických chyb.'; return; }
+  $('review').reset(); $('sentence').textContent = state.item.text; $('choices').replaceChildren();
+  for (const c of state.categories) {
+   const card = document.createElement('div'); card.className = 'choice';
+   const label = document.createElement('label'), box = document.createElement('input'); box.type = 'checkbox'; box.name = 'tag'; box.value = c.id;
+   label.append(box, document.createTextNode(c.name));
+   const description = document.createElement('p'); description.textContent = c.description;
+   const details = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = 'Definice, příklady a hranice';
+   const examples = document.createElement('p'); examples.textContent = c.examples;
+   const boundary = document.createElement('p'); boundary.textContent = c.boundary;
+   details.append(summary, description, examples, boundary); card.append(label, details); $('choices').append(card);
+   box.addEventListener('change', () => { if (box.checked) $('none').checked = false; validate(); });
+  }
+  const draft = drafts.get(state.item.id);
+  if (draft) { for (const b of boxes()) b.checked = draft.tags.includes(b.value); $('none').checked = draft.none; $('ambiguous').checked = draft.ambiguous; $('note').value = draft.note; }
+  $('review').hidden = false; $('message').textContent = ''; validate();
+ } catch (e) { $('message').textContent = e.message; }
+}
+$('none').addEventListener('change', () => { if ($('none').checked) boxes().forEach(b => b.checked = false); validate(); });
+$('ambiguous').addEventListener('change', validate); $('note').addEventListener('input', validate);
+$('review').addEventListener('submit', async event => {
+ event.preventDefault(); if (locked || $('save').disabled) return;
+ const input = { sourceHash: state.sourceHash, caseId: state.item.id, tags: boxes().filter(b => b.checked).map(b => b.value), verdict: $('ambiguous').checked ? 'ambiguous' : 'rated', note: $('note').value };
+ locked = true; validate(); $('message').textContent = 'Ukládám…';
+ try {
+  const data = await api({ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(input) });
+  $('review').hidden = true;
+  $('human').textContent = `Tvoje hodnocení: ${data.review.verdict === 'ambiguous' ? 'nejednoznačné; návrh: ' : ''}${names(data.review.tags)}${data.review.note ? ' · ' + data.review.note : ''}`;
+  $('model').textContent = `Model vybral: ${names(data.comparison.actual)}`;
+  const search = data.comparison.search;
+  $('search-result').hidden = !search;
+  if (search) $('search-result').textContent = search.mode === 'text' ? `Hledání v textu: „${search.term}“ · ${search.project ? `nalezeno: ${search.project.title} — ${search.project.author}. Textová shoda sama nezaručuje, že práce odpovídá tématu.` : 'žádná práce nenalezena'}` : search.project ? `Výběr práce: ${search.project.title} — ${search.project.author}` : 'Práce nebyla vybrána.';
+  $('synthetic').textContent = `Původní syntetický návrh: ${names(data.comparison.syntheticExpected)}`;
+  $('match').textContent = data.comparison.modelMatchesHuman === null ? 'Nejednoznačný příklad se nezapočítává jako potvrzená chyba ani shoda.' : data.comparison.modelMatchesHuman ? 'Tagy modelu se shodují s tvým hodnocením.' : 'Tagy modelu se liší od tvého hodnocení.';
+  drafts.delete(state.item.id);
+  $('progress').textContent = `Uloženo ${state.reviewed + 1} z ${state.total} ${onlyDisagreements ? 'neshod' : 'vět'}`;
+  $('comparison').hidden = false; $('message').textContent = ''; $('next').focus();
+ } catch (e) { locked = false; validate(); $('message').textContent = e.message + ' Výsledek zůstává skrytý; zkus uložení znovu.'; }
+});
+$('next').addEventListener('click', load);
+$('filter').addEventListener('click', () => {
+ if (locked && !$('review').hidden) return;
+ onlyDisagreements = !onlyDisagreements;
+ $('filter').setAttribute('aria-pressed', String(onlyDisagreements));
+ $('filter').textContent = onlyDisagreements ? 'Zobrazit všechny věty' : 'Zobrazit jen neshody';
+ $('filter-help').hidden = !onlyDisagreements;
+ load();
+});
+$('manual-text').addEventListener('input', validateManual);
+$('manual-form').addEventListener('submit', async event => {
+ event.preventDefault(); if (manualBusy || $('manual-save').disabled) return;
+ manualBusy = true; validateManual(); $('manual-message').textContent = 'Ukládám…';
+ try {
+  const response = await fetch('/api/blind-review/manual', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ text:$('manual-text').value, tags:[...document.querySelectorAll('[name=manual-tag]:checked')].map(b => b.value) }) });
+  const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Uložení se nepodařilo.');
+  $('manual-message').textContent = `Uloženo: „${data.review.text}“ · ${names(data.review.tags)}`;
+  $('manual-form').reset();
+ } catch(e) { $('manual-message').textContent = e.message; }
+ finally { manualBusy = false; validateManual(); }
+});
+load();
+</script>
+</html>
