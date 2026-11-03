@@ -80,7 +80,7 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
   function pick(id, secondId = null, years = null, grade = null) {
     const second = secondId ? new Set(index.get(secondId) || []) : null;
     const yearsSet = years ? new Set(years.flatMap(year => yearIndex.get(year) || [])) : null;
-    const graded = grade ? (gradeIndex.get(grade) || []) : BEST_GRADE_ORDER.flatMap(value => gradeIndex.get(value) || []);
+    const graded = (grade ? (Array.isArray(grade) ? grade : [grade]) : BEST_GRADE_ORDER).flatMap(value => gradeIndex.get(value) || []);
     const primary = id ? new Set(index.get(id) || []) : null;
     const candidates = graded.filter(candidate => (!primary || primary.has(candidate)) && (!second || second.has(candidate)) && (!yearsSet || yearsSet.has(candidate)));
     if (!candidates.length) return null;
@@ -97,7 +97,7 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     const primary = id ? new Set(index.get(id) || []) : null;
     const second = secondId ? new Set(index.get(secondId) || []) : null;
     const yearsSet = years ? new Set(years.flatMap(year => yearIndex.get(year) || [])) : null;
-    const grades = grade ? [grade] : BEST_GRADE_ORDER;
+    const grades = grade ? (Array.isArray(grade) ? grade : [grade]) : BEST_GRADE_ORDER;
     const candidates = grades.flatMap(value => gradeIndex.get(value) || []).filter(candidate => candidate !== first.id && (!primary || primary.has(candidate)) && (!second || second.has(candidate)) && (!yearsSet || yearsSet.has(candidate)));
     const result = [first];
     while (candidates.length && result.length < limit) {
@@ -135,7 +135,7 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     const terms = topicTerms(text).map(normalize);
     if (!terms.length) return { attempted: false, project: null };
     const yearsSet = years ? new Set(years.flatMap(year => yearIndex.get(year) || [])) : null;
-    const graded = grade ? (gradeIndex.get(grade) || []) : BEST_GRADE_ORDER.flatMap(value => gradeIndex.get(value) || []);
+    const graded = (grade ? (Array.isArray(grade) ? grade : [grade]) : BEST_GRADE_ORDER).flatMap(value => gradeIndex.get(value) || []);
     const candidates = graded.flatMap(id => {
       if (yearsSet && !yearsSet.has(id)) return [];
       const work = effective(projects.get(id));
@@ -159,7 +159,7 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     return { attempted: true, project: selectedProjects[0], projects: selectedProjects };
   }
   function searchBestTopic(text, years = null) {
-    for (const grade of BEST_GRADE_ORDER) {
+    for (const grade of [['A+', 'A'], 'B', 'C', 'D', 'E', 'F']) {
       const result = searchTopic(text, years, grade);
       if (result.project) return result;
     }

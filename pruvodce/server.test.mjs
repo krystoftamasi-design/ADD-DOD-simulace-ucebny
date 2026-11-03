@@ -60,3 +60,19 @@ test('textové hledání vrací odpovídající práce seřazené podle známky'
     assert.equal(result.project.id, 'a');
   } finally { await rm(temp, {recursive:true, force:true}); }
 });
+
+test('nejlepší zahrnuje A+ i A a nepřidává B, také při hledání tématu', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'dod-best-'));
+  try {
+    const dir = join(temp, 'prace', 'showcase-digital-komplet');
+    await mkdir(dir, { recursive: true });
+    const projects = [{id:'plus', title:'Design města', grade:'A+', year:'2025/2026'}, {id:'a', title:'Design města', grade:'A', year:'2025/2026'}, {id:'b', title:'Design města', grade:'B', year:'2025/2026'}];
+    const assets = Object.fromEntries(projects.map(p => [p.id, {image:{file:`obrazky/${p.id}.jpg`}, uses:[{project_id:p.id}]}]));
+    await writeFile(join(dir, 'metadata.json'), JSON.stringify({projects, assets}));
+    const catalog = await openCatalog(pathToFileURL(temp + '/'), []);
+    const first = catalog.pick(null, null, null, ['A+', 'A']);
+    assert.deepEqual(catalog.pickMany(null, null, null, ['A+', 'A'], first).map(p => p.grade), ['A+', 'A']);
+    assert.deepEqual(catalog.searchBestTopic('města').projects.map(p => p.grade), ['A+', 'A']);
+    assert.deepEqual(catalog.searchBestTopic('města', ['2024/2025']).projects || [], []);
+  } finally { await rm(temp, {recursive:true, force:true}); }
+});
