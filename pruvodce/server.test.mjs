@@ -35,7 +35,7 @@ test('samostatný průvodce funguje bez katalogu i s místně připojeným katal
       try {
         await Promise.race([once(child.stdout,'data'),once(child,'exit').then(()=>{throw new Error('Server se nespustil.');}),new Promise((_,reject)=>{const t=setTimeout(()=>reject(new Error('Server neodpověděl.')),5000);t.unref();})]);
         const base=`http://127.0.0.1:${port}`;
-        for (const path of ['/','/admin','/slepe-hodnoceni','/tester-rozhodovani','/test-tagu']) assert.equal((await fetch(base+path)).status,200);
+        for (const path of ['/','/admin','/slepe-hodnoceni','/tester-rozhodovani','/test-tagu','/vystava','/vystava.js','/vystava.css','/fonts/neue-machina-regular.otf','/fonts/neue-machina-ultrabold.otf']) assert.equal((await fetch(base+path)).status,200);
         const projects=await (await fetch(base+'/api/projects')).json(); assert.equal(projects.projectsConnected,withData); assert.deepEqual(projects.projects,[]);
         const result=await (await fetch(base+'/api/classify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'Ukaž web',model:'tev1:4b'})})).json();
         assert.equal(result.category.id,'web'); assert.equal(result.projectsConnected,withData); assert.equal(result.project,null);
@@ -58,5 +58,21 @@ test('textové hledání vrací odpovídající práce seřazené podle známky'
     const result = catalog.searchTopic('design');
     assert.deepEqual(result.projects.map(p => p.id), ['a', 'b']);
     assert.equal(result.project.id, 'a');
+  } finally { await rm(temp, {recursive:true, force:true}); }
+});
+
+test('nejlepší zahrnuje A+ i A a nepřidává B, také při hledání tématu', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'dod-best-'));
+  try {
+    const dir = join(temp, 'prace', 'showcase-digital-komplet');
+    await mkdir(dir, { recursive: true });
+    const projects = [{id:'plus', title:'Design města', grade:'A+', year:'2025/2026'}, {id:'a', title:'Design města', grade:'A', year:'2025/2026'}, {id:'b', title:'Design města', grade:'B', year:'2025/2026'}];
+    const assets = Object.fromEntries(projects.map(p => [p.id, {image:{file:`obrazky/${p.id}.jpg`}, uses:[{project_id:p.id}]}]));
+    await writeFile(join(dir, 'metadata.json'), JSON.stringify({projects, assets}));
+    const catalog = await openCatalog(pathToFileURL(temp + '/'), []);
+    const first = catalog.pick(null, null, null, ['A+', 'A']);
+    assert.deepEqual(catalog.pickMany(null, null, null, ['A+', 'A'], first).map(p => p.grade), ['A+', 'A']);
+    assert.deepEqual(catalog.searchBestTopic('města').projects.map(p => p.grade), ['A+', 'A']);
+    assert.deepEqual(catalog.searchBestTopic('města', ['2024/2025']).projects || [], []);
   } finally { await rm(temp, {recursive:true, force:true}); }
 });

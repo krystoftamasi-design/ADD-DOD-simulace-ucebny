@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10100f">
+  <title>Práce — DOD</title>
+  <link rel="preload" href="/fonts/neue-machina-regular.otf" as="font" type="font/otf" crossorigin>
+  <link rel="stylesheet" href="/vystava.css">
+  <script src="/vystava.js" defer></script>
+</head>
+<body>
+  <main class="exhibition" aria-label="Prezentace studentské práce">
+    <section class="work-layout" id="work-layout" aria-live="polite" aria-busy="true">
+      <div class="hero-frame" id="hero-frame"><img class="hero-image" id="hero-image" alt="" fetchpriority="high"><button class="image-dot previous-image" id="previous-image" aria-label="Předchozí fotografie" type="button" hidden><svg class="image-dot-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M15.5 5 8.5 12l7 7"/></svg></button><button class="image-dot next-image" id="next-image" aria-label="Další fotografie" type="button" hidden><svg class="image-dot-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="m8.5 5 7 7-7 7"/></svg></button></div>
+      <div class="credit-line"><div class="work-heading"><div class="work-name"><h1 id="work-title"></h1><p class="author" id="work-author"></p></div><p class="year" id="work-year"></p></div><p class="description" id="work-description"></p></div>
+    </section>
+    <p id="status" class="status" role="status"></p>
+  </main>
+</body>
+</html>
