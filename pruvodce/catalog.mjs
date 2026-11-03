@@ -1,6 +1,8 @@
 import { readFile, writeFile, rename, mkdir, readdir } from 'node:fs/promises';
 import { randomInt, randomUUID } from 'node:crypto';
 
+const BEST_GRADE_ORDER = ['A+', 'A', 'B', 'C', 'D', 'E', 'F'];
+
 export async function openCatalog(root, categories, { allowEmpty = false } = {}) {
   let source;
   try { source = JSON.parse(await readFile(new URL('prace/showcase-digital-komplet/metadata.json', root), 'utf8')); }
@@ -68,7 +70,7 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     gradeIndex = new Map();
     for (const p of projects.values()) {
       const work = effective(p);
-      if (!['A', 'A+', 'F'].includes(work.grade) || !work.images.some(image => !image.hidden)) continue;
+      if (!BEST_GRADE_ORDER.includes(work.grade) || !work.images.some(image => !image.hidden)) continue;
       const graded = gradeIndex.get(work.grade) || []; graded.push(p.id); gradeIndex.set(work.grade, graded);
       if (work.year) { const ids = yearIndex.get(work.year) || []; ids.push(p.id); yearIndex.set(work.year, ids); }
       for (const cat of categories) if (work.tags.includes(cat.name)) index.get(cat.id).push(p.id);
@@ -78,15 +80,41 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
   function pick(id, secondId = null, years = null, grade = null) {
     const second = secondId ? new Set(index.get(secondId) || []) : null;
     const yearsSet = years ? new Set(years.flatMap(year => yearIndex.get(year) || [])) : null;
-    const graded = grade ? (gradeIndex.get(grade) || []) : [...(gradeIndex.get('A') || []), ...(gradeIndex.get('A+') || [])];
+    const graded = grade ? (gradeIndex.get(grade) || []) : BEST_GRADE_ORDER.flatMap(value => gradeIndex.get(value) || []);
     const primary = id ? new Set(index.get(id) || []) : null;
     const candidates = graded.filter(candidate => (!primary || primary.has(candidate)) && (!second || second.has(candidate)) && (!yearsSet || yearsSet.has(candidate)));
     if (!candidates.length) return null;
     const key = `${secondId ? [id, secondId].sort().join('|') : id}|${years?.join('|') || ''}|${grade || ''}`;
-    const available = candidates.length > 1 ? candidates.filter(x => x !== last.get(key)) : candidates;
+    const firstGrade = effective(projects.get(candidates[0])).grade;
+    const best = candidates.filter(id => effective(projects.get(id)).grade === firstGrade);
+    const available = best.length > 1 ? best.filter(x => x !== last.get(key)) : best;
     const chosen = available[randomInt(available.length)]; last.set(key, chosen);
     const work = effective(projects.get(chosen));
     return { ...work, images: work.images.filter(image => !image.hidden) };
+  }
+  function pickMany(id, secondId, years, grade, first, limit = 10) {
+    if (!first) return [];
+    const primary = id ? new Set(index.get(id) || []) : null;
+    const second = secondId ? new Set(index.get(secondId) || []) : null;
+    const yearsSet = years ? new Set(years.flatMap(year => yearIndex.get(year) || [])) : null;
+    const grades = grade ? [grade] : BEST_GRADE_ORDER;
+    const candidates = grades.flatMap(value => gradeIndex.get(value) || []).filter(candidate => candidate !== first.id && (!primary || primary.has(candidate)) && (!second || second.has(candidate)) && (!yearsSet || yearsSet.has(candidate)));
+    const result = [first];
+    while (candidates.length && result.length < limit) {
+      const topGrade = effective(projects.get(candidates[0])).grade;
+      const groupSize = candidates.findIndex(id => effective(projects.get(id)).grade !== topGrade);
+      const [chosen] = candidates.splice(randomInt(groupSize < 0 ? candidates.length : groupSize), 1);
+      const work = effective(projects.get(chosen));
+      result.push({ ...work, images: work.images.filter(image => !image.hidden) });
+    }
+    return result;
+  }
+  function pickBest(id, secondId = null, years = null) {
+    for (const grade of BEST_GRADE_ORDER) {
+      const project = pick(id, secondId, years, grade);
+      if (project) return project;
+    }
+    return null;
   }
   function topicTerms(text) {
     const normalize = value => value.toLocaleLowerCase('cs').normalize('NFD').replace(/\p{M}/gu, '');
@@ -107,7 +135,7 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     const terms = topicTerms(text).map(normalize);
     if (!terms.length) return { attempted: false, project: null };
     const yearsSet = years ? new Set(years.flatMap(year => yearIndex.get(year) || [])) : null;
-    const graded = grade ? (gradeIndex.get(grade) || []) : [...(gradeIndex.get('A') || []), ...(gradeIndex.get('A+') || [])];
+    const graded = grade ? (gradeIndex.get(grade) || []) : BEST_GRADE_ORDER.flatMap(value => gradeIndex.get(value) || []);
     const candidates = graded.flatMap(id => {
       if (yearsSet && !yearsSet.has(id)) return [];
       const work = effective(projects.get(id));
@@ -117,11 +145,25 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
       return matches ? [work] : [];
     });
     if (!candidates.length) return { attempted: true, project: null };
-    const preferred = !grade && candidates.some(work => work.grade === 'A+') ? candidates.filter(work => work.grade === 'A+') : candidates;
+    const preferred = candidates.filter(work => work.grade === candidates[0].grade);
     const key = `text:${terms.join('|')}|${years?.join('|') || ''}|${grade || ''}`;
     const available = preferred.length > 1 ? preferred.filter(work => work.id !== last.get(key)) : preferred;
     const work = available[randomInt(available.length)]; last.set(key, work.id);
-    return { attempted: true, project: { ...work, images: work.images.filter(image => !image.hidden) } };
+    const remaining = candidates.filter(candidate => candidate.id !== work.id);
+    const selected = [work];
+    while (remaining.length && selected.length < 10) {
+      const groupSize = remaining.findIndex(candidate => candidate.grade !== remaining[0].grade);
+      selected.push(remaining.splice(randomInt(groupSize < 0 ? remaining.length : groupSize), 1)[0]);
+    }
+    const selectedProjects = selected.map(candidate => ({ ...candidate, images: candidate.images.filter(image => !image.hidden) }));
+    return { attempted: true, project: selectedProjects[0], projects: selectedProjects };
+  }
+  function searchBestTopic(text, years = null) {
+    for (const grade of BEST_GRADE_ORDER) {
+      const result = searchTopic(text, years, grade);
+      if (result.project) return result;
+    }
+    return { attempted: true, project: null };
   }
   function update(id, grade, tags, hiddenImages) {
     const task = async () => {
@@ -160,5 +202,5 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     }
     return versions;
   }
-  return { categories, list: () => [...projects.values()].map(effective), pick, topicTerms, searchTopic, update, history, media: id => media.get(id) };
+  return { categories, list: () => [...projects.values()].map(effective), pick, pickMany, pickBest, bestGradeOrder: [...BEST_GRADE_ORDER], topicTerms, searchTopic, searchBestTopic, update, history, media: id => media.get(id) };
 }

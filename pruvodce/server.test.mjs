@@ -6,6 +6,8 @@ import { once } from 'node:events';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { openCatalog } from './catalog.mjs';
 
 async function freePort() {
   const server = http.createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -41,4 +43,20 @@ test('samostatný průvodce funguje bez katalogu i s místně připojeným katal
       } finally { child.kill(); await once(child,'exit'); }
     }
   } finally { mock.closeAllConnections(); await new Promise(resolve => mock.close(resolve)); await rm(temp,{recursive:true,force:true}); }
+});
+
+
+test('textové hledání vrací odpovídající práce seřazené podle známky', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'dod-topic-'));
+  try {
+    const dir = join(temp, 'prace', 'showcase-digital-komplet');
+    await mkdir(dir, { recursive: true });
+    const projects = [{id:'a', title:'Design města', grade:'A', year:'2025/2026'}, {id:'b', title:'Design krajiny', grade:'B', year:'2025/2026'}];
+    const assets = Object.fromEntries(projects.map(p => [p.id, {image:{file:`obrazky/${p.id}.jpg`}, uses:[{project_id:p.id}]}]));
+    await writeFile(join(dir, 'metadata.json'), JSON.stringify({projects, assets}));
+    const catalog = await openCatalog(pathToFileURL(temp + '/'), []);
+    const result = catalog.searchTopic('design');
+    assert.deepEqual(result.projects.map(p => p.id), ['a', 'b']);
+    assert.equal(result.project.id, 'a');
+  } finally { await rm(temp, {recursive:true, force:true}); }
 });

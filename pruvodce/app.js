@@ -22,20 +22,25 @@ const defaultProject = { tag: 'UKÁZKOVÝ OBSAH / 3D', title: 'Prostor pro stude
 function showProject(content) {
   hasSelectedWork = !!content.work;
   selectedWork.hidden = true;
-  if (content.work) {
-    const work = content.work;
-    selectedWork.querySelector('h2').textContent = work.title;
-    selectedWork.querySelector('.admin-meta').textContent = `${work.author} · ${work.year}`;
-    selectedWork.querySelector('.work-description').textContent = work.description || 'Popis práce není dostupný.';
-    selectedWork.querySelector('.selected-work-tag').textContent = `Vybraný tag: ${content.tag} · Známka: ${work.grade}`;
-    selectedWork.querySelector('.work-gallery h3').textContent = `Obrázky (${work.images.length})`;
-    const gallery = selectedWork.querySelector('.work-gallery-grid');
-    gallery.replaceChildren();
+  const works = content.works || (content.work ? [content.work] : []);
+  selectedWork.replaceChildren();
+  for (const work of works) {
+    const card = document.createElement('article'); card.className = 'admin-work selected-work-card';
+    const info = document.createElement('div'); info.className = 'admin-info';
+    const title = document.createElement('h2'); title.textContent = work.title;
+    const meta = document.createElement('p'); meta.className = 'admin-meta'; meta.textContent = `${work.author} · ${work.year}`;
+    const description = document.createElement('p'); description.className = 'work-description'; description.textContent = work.description || 'Popis práce není dostupný.';
+    const tag = document.createElement('p'); tag.className = 'selected-work-tag'; tag.textContent = `Vybraný tag: ${content.tag} · Známka: ${work.grade}`;
+    info.append(title, meta, description, tag);
+    const gallery = document.createElement('aside'); gallery.className = 'work-gallery';
+    const heading = document.createElement('h3'); heading.textContent = `Obrázky (${work.images.length})`;
+    const grid = document.createElement('div'); grid.className = 'work-gallery-grid';
     work.images.forEach((image, index) => {
       const link = document.createElement('a'); link.href = image.url; link.target = '_blank'; link.rel = 'noopener';
       const img = document.createElement('img'); img.src = image.url; img.alt = `${work.title}, obrázek ${index + 1}`; img.loading = 'lazy';
-      link.append(img); gallery.append(link);
+      link.append(img); grid.append(link);
     });
+    gallery.append(heading, grid); card.append(info, gallery); selectedWork.append(card);
   }
   project.querySelector('.project-tag').textContent = content.tag;
   project.querySelector('h2').textContent = content.title;
@@ -129,6 +134,12 @@ const missingCategory = document.querySelector('#feedback-missing-category');
 const feedbackStatus = document.querySelector('#feedback-status');
 let feedbackRecord = null;
 const confirmFeedback = document.querySelector('#feedback-confirm');
+function setFeedbackReady(ready) {
+  [confirmFeedback, document.querySelector('#feedback-open'), missingButton, feedbackForm.querySelector('button'), missingForm.querySelector('button')].forEach(control => { control.disabled = !ready; });
+  if (!ready) feedbackStatus.textContent = 'Po vyhodnocení věty můžeš potvrdit nebo opravit vybrané tagy.';
+  else feedbackStatus.textContent = '';
+}
+setFeedbackReady(false);
 confirmFeedback.addEventListener('click', async () => {
   if (!feedbackRecord) return;
   const buttons = [confirmFeedback, document.querySelector('#feedback-open'), missingButton]; const controls = [...buttons, feedbackForm.querySelector('button'), missingForm.querySelector('button')]; controls.forEach(b => b.disabled = true);
@@ -151,12 +162,13 @@ missingForm.addEventListener('submit', async event => {
 feedbackForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!feedbackRecord) return;
-  const correctIds = [feedbackCategory.value, ...(feedbackSecond.value ? [feedbackSecond.value] : [])];
+  if (feedbackCategory.value === 'unknown' && feedbackSecond.value) { feedbackStatus.textContent = 'U volby „Žádný oborový tag“ nemůže být vybraný druhý tag.'; return; }
+  const correctIds = feedbackCategory.value === 'unknown' ? [] : [feedbackCategory.value, ...(feedbackSecond.value ? [feedbackSecond.value] : [])];
   if (new Set(correctIds).size !== correctIds.length) { feedbackStatus.textContent = 'Vyber dva různé tagy.'; return; }
   if (correctIds.length === feedbackRecord.selectedIds.length && correctIds.every(id => feedbackRecord.selectedIds.includes(id))) { feedbackStatus.textContent = 'Vyber jiný výsledek, než vybral model.'; return; }
   const button = feedbackForm.querySelector('button'); button.disabled = true;
   confirmFeedback.disabled = true; missingButton.disabled = true;
-  try { await api('/api/category-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...feedbackRecord, verdict: 'corrected', correctId: correctIds[0], correctIds }) }); feedbackForm.hidden = true; document.querySelector('#feedback-open').hidden = true; confirmFeedback.hidden = true; missingButton.hidden = true; feedbackStatus.textContent = 'Oprava byla uložena.'; }
+  try { await api('/api/category-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...feedbackRecord, verdict: 'corrected', correctId: correctIds[0] || 'unknown', correctIds }) }); feedbackForm.hidden = true; document.querySelector('#feedback-open').hidden = true; confirmFeedback.hidden = true; missingButton.hidden = true; feedbackStatus.textContent = 'Oprava byla uložena.'; }
   catch (error) { feedbackStatus.textContent = `Opravu se nepodařilo uložit: ${error.message}`; }
   finally { button.disabled = false; confirmFeedback.disabled = false; missingButton.disabled = false; }
 });
@@ -189,7 +201,7 @@ document.querySelector('#request-form').addEventListener('submit', async event =
   const text = document.querySelector('#request-text').value.trim();
   if (!text || !modelSelect.value) { resultText.textContent = 'Zadej požadavek a vyber dostupný model.'; return; }
   cancelDemo(); requestBusy = true; setState('thinking');
-  feedback.hidden = true; feedbackForm.hidden = true; missingForm.hidden = true; missingButton.hidden = true; document.querySelector('#feedback-open').hidden = false; confirmFeedback.hidden = false; feedbackStatus.textContent = ''; feedbackRecord = null;
+  feedback.hidden = false; feedbackForm.hidden = true; missingForm.hidden = true; missingButton.hidden = true; document.querySelector('#feedback-open').hidden = false; confirmFeedback.hidden = false; feedbackRecord = null; setFeedbackReady(false);
   beginInspection(text, modelSelect.value);
   transcript.textContent = 'Lokální model vybírá kategorii…'; resultText.textContent = '';
   const locked = [...buttons, document.querySelector('#demo'), document.querySelector('#submit-request'), refreshModels, modelSelect];
@@ -200,16 +212,18 @@ document.querySelector('#request-form').addEventListener('submit', async event =
     const d = data.diagnostics || {};
     const answer = d.response?.answers?.category;
     const rejectedAtStart = d.relevanceResponse?.answers?.relevance?.choice === 'ne';
-    feedbackRecord = { text, model: modelSelect.value, selectedId: data.category?.id || 'unknown', selectedIds: (data.categories || []).map(c => c.id), diagnostics: { endpoint: d.endpoint || null, durationMs: d.durationMs ?? null, confidence: answer?.confidence ?? null, scores: d.tagScores ?? answer?.probabilities ?? null, usage: d.response?.usage ?? null, request: d.request || null, answers: d.response?.answers ?? null, selectionRules: d.selectionRules ?? null } }; feedbackSecond.value = ''; missingButton.hidden = feedbackRecord.selectedIds.length !== 1; feedback.hidden = data.searchMode === 'text' || rejectedAtStart;
+    feedbackRecord = { text, model: modelSelect.value, selectedId: data.category?.id || 'unknown', selectedIds: (data.categories || []).map(c => c.id), diagnostics: { endpoint: d.endpoint || null, durationMs: d.durationMs ?? null, confidence: answer?.confidence ?? null, scores: d.tagScores ?? answer?.probabilities ?? null, usage: d.response?.usage ?? null, request: d.request || null, answers: d.response?.answers ?? null, selectionRules: d.selectionRules ?? null } }; feedbackSecond.value = ''; missingButton.hidden = feedbackRecord.selectedIds.length !== 1; feedback.hidden = false; setFeedbackReady(true);
     if (!data.category) { setState('idle'); resultText.textContent = data.clarification || 'Zkus popsat, jaký typ studentské práce chceš vidět.'; transcript.textContent = rejectedAtStart ? 'Tev1 požadavek při úvodním posouzení vyhodnotil jako nesouvisející se studentskou prací.' : 'Model nevybral žádný tag ani téma.'; return; }
     if (!data.projectsConnected) { setState('idle'); resultText.textContent = 'Katalog prací není připojený. Pro zobrazení prací nastav DOD_DATA_DIR podle návodu.'; return; }
     if (!data.project && data.searchMode === 'text') { setState('idle'); resultText.textContent = `Pro téma „${data.searchTerm}“ jsem v názvech, dostupných popisech ani souvisejících slovech nenašel odpovídající práci. Zkus jiné nebo jednodušší vyjádření.`; return; }
-    if (!data.project) { setState('idle'); resultText.textContent = `Pro zadané podmínky${data.years ? ` a školní rok ${data.years.join(' nebo ')}` : ''} není dostupná žádná práce se známkou ${data.quality === 'best' ? 'A+' : data.quality === 'worst' ? 'F' : 'A nebo A+'} a obrázkem.`; return; }
+    if (!data.project) { setState('idle'); resultText.textContent = `Pro zadané podmínky${data.years ? ` a školní rok ${data.years.join(' nebo ')}` : ''} není dostupná žádná práce se známkou ${data.quality === 'best' ? `v pořadí ${data.qualityOrder?.join(' → ') || 'A+ → A → B → C → D → E → F'}` : data.quality === 'worst' ? 'F' : 'A nebo A+'} a obrázkem.`; return; }
     const qualityLabel = data.quality === 'best' ? 'Nejlepší' : data.quality === 'worst' ? 'Nejhorší' : '';
     const chosenTags = [...data.categories.map(c => c.name), qualityLabel].filter(Boolean).join(' + ') || 'školní rok';
     const matchedTags = [...data.matchedCategories.map(c => c.name), data.gradeFallback ? '' : qualityLabel].filter(Boolean).join(' + ') || 'Školní rok';
-    showProject({ tag: matchedTags, title: data.project.title, description: `${data.project.author} · ${data.project.year} · ${data.project.grade}`, image: data.project.images[0]?.url, work: data.project });
-    resultText.textContent = data.searchMode === 'text' ? `Pro téma „${data.searchTerm}“ jsem našel práci podle shody v názvu, popisu nebo souvisejících slovech: ${data.project.title} — ${data.project.author}. Zkontroluj, jestli odpovídá tvému zájmu.` : `Kategorické tagy: ${data.categories.map(c => c.name).join(' + ')}. Jiné tagy: ${[qualityLabel, ...(data.years || [])].filter(Boolean).join(' + ') || 'žádné'}. ${data.gradeFallback ? `Pro oba tagy není dostupná práce s požadovanou známkou; zobrazuji práci se známkou ${data.project.grade}. ` : data.fallback ? `Pro oba tagy není dostupná práce, zobrazuji podle ${data.category.name}. ` : ''}Práce: ${data.project.title} — ${data.project.author}.`;
+    showProject({ tag: matchedTags, title: data.project.title, description: `${data.project.author} · ${data.project.year} · ${data.project.grade}`, image: data.project.images[0]?.url, work: data.project, works: data.projects });
+    const gradeMessage = data.gradeFallback ? data.quality === 'best' ? ` Známka A+ nebyla při ostatních podmínkách dostupná; podle pořadí ${data.qualityOrder?.join(' → ') || 'A+ → A → B → C → D → E → F'} zobrazuji práci se známkou ${data.project.grade}.` : ` Práce s požadovanou známkou F nebyla pro oba tagy dostupná; zobrazuji práci se známkou ${data.project.grade}.` : '';
+    const tagFallbackMessage = data.fallback ? ` Práci se všemi tagy se nepodařilo najít; druhý tag se neuplatnil.` : '';
+    resultText.textContent = data.searchMode === 'text' ? `Pro téma „${data.searchTerm}“ jsem našel ${(data.projects || [data.project]).length} prací podle shody v názvu, popisu nebo souvisejících slovech. Zkontroluj, jestli odpovídají tvému zájmu.${gradeMessage}` : `Kategorické tagy: ${data.categories.map(c => c.name).join(' + ')}. Jiné tagy: ${[qualityLabel, ...(data.years || [])].filter(Boolean).join(' + ') || 'žádné'}.${gradeMessage}${tagFallbackMessage} Nalezeno prací: ${(data.projects || [data.project]).length}.`;
     setState('flying');
   } catch (error) { completeInspection({ error: error.message, diagnostics: error.diagnostics }); setState('idle'); resultText.textContent = error.message; transcript.textContent = 'Požadavek se nepodařilo dokončit.'; }
   finally { requestBusy = false; locked.forEach(control => control.disabled = false); }
@@ -217,7 +231,7 @@ document.querySelector('#request-form').addEventListener('submit', async event =
 let categoryNames = new Map();
 async function loadCategories() {
   if (location.protocol === 'file:') return;
-  try { const { categories } = await api('/api/categories'); categoryNames = new Map(categories.map(category => [category.id, category.name])); feedbackCategory.replaceChildren(new Option('Vyber správný tag', ''), ...categories.map(category => new Option(category.name, category.id))); feedbackSecond.replaceChildren(new Option('Žádný druhý tag', ''), ...categories.map(category => new Option(category.name, category.id))); missingCategory.replaceChildren(new Option('Vyber chybějící tag', ''), ...categories.map(category => new Option(category.name, category.id))); document.querySelector('#category-list').replaceChildren(...categories.map(category => { const chip = document.createElement('span'); chip.textContent = category.name; return chip; })); }
+  try { const { categories } = await api('/api/categories'); categoryNames = new Map(categories.map(category => [category.id, category.name])); feedbackCategory.replaceChildren(new Option('Vyber správný tag', ''), new Option('Žádný oborový tag', 'unknown'), ...categories.map(category => new Option(category.name, category.id))); feedbackSecond.replaceChildren(new Option('Žádný druhý tag', ''), ...categories.map(category => new Option(category.name, category.id))); missingCategory.replaceChildren(new Option('Vyber chybějící tag', ''), ...categories.map(category => new Option(category.name, category.id))); document.querySelector('#category-list').replaceChildren(...categories.map(category => { const chip = document.createElement('span'); chip.textContent = category.name; return chip; })); }
   catch { /* Connection information is displayed by loadModels. */ }
 }
 loadModels(); loadCategories();
@@ -263,11 +277,12 @@ function renderInspection(record) {
   const statusText = record?.pending ? 'Probíhá…' : record?.error ? 'Chyba' : '—';
   inspect('inspect-selected-tags').textContent = relevance === 'ne' ? 'Obory se neposuzovaly' : selected.length ? selected.map(c => c.name).join(' + ') : record && !record.pending && !record.error ? 'Žádný oborový tag' : statusText;
   inspect('inspect-topic').textContent = record?.searchTerm ? record.searchTerm : (topicAnswer?.choice === 'none' ? 'Model nezvolil téma' : d.topicRequest ? 'Téma nebylo určeno' : record && !record.pending && !record.error ? 'Textové hledání neproběhlo' : statusText);
-  const filterParts = [...(record?.years || []), record?.quality === 'best' ? 'Nejlepší (A+)' : record?.quality === 'worst' ? 'Nejhorší (F)' : ''].filter(Boolean);
+  const filterParts = [...(record?.years || []), record?.quality === 'best' ? `Nejlepší (${(record.qualityOrder || ['A+', 'A', 'B', 'C', 'D', 'E', 'F']).join(' → ')})` : record?.quality === 'worst' ? 'Nejhorší (F)' : ''].filter(Boolean);
   inspect('inspect-filters').textContent = filterParts.join(' · ') || (record && !record.pending && !record.error ? 'Bez roku a požadavku na kvalitu' : statusText);
   inspect('inspect-result').textContent = record?.project ? `${record.project.title} — ${record.project.author}` : record && !record.pending && !record.error ? 'Práce nenalezena' : statusText;
   let outcome = relevance === 'ne' ? 'Tev1 úvodně vyhodnotil požadavek jako nesouvisející se studentskou prací; obory ani téma se neposuzovaly.' : record?.searchMode === 'text' ? 'Práce se hledala podle textové shody v názvu, popisu nebo asociovaných slovech.' : selected.length ? `Hledání podle oborových tagů${matched.length ? `: ${matched.map(c => c.name).join(' + ')}` : ''}.` : record?.years || record?.quality ? 'Hledání podle roku nebo kvality.' : 'Požadavek potřebuje upřesnit.';
-  if (record?.gradeFallback) outcome += ' Byla použita náhradní známka.';
+  if (record?.gradeFallback && record.quality === 'best') outcome += ` Známka A+ nebyla dostupná; sestupem byla vybrána známka ${record.project?.grade || 'podle pořadí'}.`;
+  else if (record?.gradeFallback) outcome += ` Požadovaná známka nebyla dostupná; použila se známka ${record.project?.grade || 'náhradní'}.`;
   if (record?.fallback) outcome += ' Druhý tag se nepodařilo splnit.';
   inspect('inspect-outcome').textContent = record?.pending ? 'Čekáme na odpověď lokálního modelu.' : record?.error ? `Chyba: ${record.error}` : record ? outcome : 'Zatím žádné rozhodnutí.';
   inspect('inspect-topic-details').hidden = !d.topicRequest;

@@ -9,10 +9,10 @@ const root = new URL('./', import.meta.url);
 const tagRules = JSON.parse(await readFile(new URL('pravidla-vyberu-tagu.json', root), 'utf8'));
 if (!Number.isFinite(tagRules.threshold) || tagRules.threshold < 0.5 || tagRules.threshold > 1 || tagRules.maxTags !== 2) throw new Error('Neplatná pravidla výběru tagů.');
 if (!Number.isFinite(tagRules.primaryThreshold) || tagRules.primaryThreshold < 0 || tagRules.primaryThreshold > tagRules.threshold) throw new Error('Neplatný práh hlavního tagu.');
-const feedbackFile = process.env.DOD_FEEDBACK_FILE || new URL('opravy-rozhodnuti.jsonl', root);
-const { categories } = JSON.parse(await readFile(new URL('categories.json', root), 'utf8'));
 const hasWorkData = Boolean(process.env.DOD_DATA_DIR);
 const dataRoot = hasWorkData ? pathToFileURL(resolve(process.env.DOD_DATA_DIR) + sep) : new URL('data/', root);
+const feedbackFile = process.env.DOD_FEEDBACK_FILE || new URL('opravy-rozhodnuti-nove.jsonl', hasWorkData ? dataRoot : root);
+const { categories } = JSON.parse(await readFile(new URL('categories.json', root), 'utf8'));
 const catalog = await openCatalog(dataRoot, categories, { allowEmpty: !process.env.DOD_DATA_DIR });
 const blindReview = await openBlindReview(hasWorkData ? dataRoot : root, categories, process.env.DOD_BLIND_REVIEW_FILE || new URL('lidska-hodnoceni.jsonl', root));
 const port = Number(process.env.PORT || 3000);
@@ -59,11 +59,11 @@ const server = http.createServer(async (req, res) => {
       let input; try { input = JSON.parse(body); } catch { return json(res, 400, { error: 'Neplatný JSON.' }); }
       const ids = new Set(categories.map(c => c.id));
       const verdict = input.verdict ?? 'corrected';
-      if (!['corrected', 'confirmed'].includes(verdict) || typeof input.text !== 'string' || !input.text.trim() || input.text.length > 2000 || !(ids.has(input.correctId) || (verdict === 'confirmed' && input.correctId === 'unknown')) || !(ids.has(input.selectedId) || input.selectedId === 'unknown') || typeof input.model !== 'string' || input.model.length > 200) return json(res, 400, { error: 'Neplatné hodnocení tagu.' });
+      if (!['corrected', 'confirmed'].includes(verdict) || typeof input.text !== 'string' || !input.text.trim() || input.text.length > 2000 || !(ids.has(input.correctId) || input.correctId === 'unknown') || !(ids.has(input.selectedId) || input.selectedId === 'unknown') || typeof input.model !== 'string' || input.model.length > 200) return json(res, 400, { error: 'Neplatné hodnocení tagu.' });
       const diagnostic = input.diagnostics && typeof input.diagnostics === 'object' && !Array.isArray(input.diagnostics) ? input.diagnostics : {};
       const selectedIds = input.selectedIds ?? (input.selectedId === 'unknown' ? [] : [input.selectedId]);
-      const correctIds = input.correctIds ?? [input.correctId];
-      if (!Array.isArray(selectedIds) || !Array.isArray(correctIds) || selectedIds.length > 2 || correctIds.length > 2 || (!correctIds.length && !(verdict === 'confirmed' && input.correctId === 'unknown')) || new Set(selectedIds).size !== selectedIds.length || new Set(correctIds).size !== correctIds.length || !selectedIds.every(id => ids.has(id)) || !correctIds.every(id => ids.has(id)) || selectedIds[0] !== (input.selectedId === 'unknown' ? undefined : input.selectedId) || correctIds[0] !== (input.correctId === 'unknown' ? undefined : input.correctId)) return json(res, 400, { error: 'Neplatný výběr tagů.' });
+      const correctIds = input.correctIds ?? (input.correctId === 'unknown' ? [] : [input.correctId]);
+      if (!Array.isArray(selectedIds) || !Array.isArray(correctIds) || selectedIds.length > 2 || correctIds.length > 2 || (!correctIds.length && input.correctId !== 'unknown') || new Set(selectedIds).size !== selectedIds.length || new Set(correctIds).size !== correctIds.length || !selectedIds.every(id => ids.has(id)) || !correctIds.every(id => ids.has(id)) || selectedIds[0] !== (input.selectedId === 'unknown' ? undefined : input.selectedId) || correctIds[0] !== (input.correctId === 'unknown' ? undefined : input.correctId)) return json(res, 400, { error: 'Neplatný výběr tagů.' });
       const same = selectedIds.length === correctIds.length && selectedIds.every(id => correctIds.includes(id));
       if ((verdict === 'corrected' && same) || (verdict === 'confirmed' && !same)) return json(res, 400, { error: 'Hodnocení neodpovídá vybraným tagům.' });
       const record = { timestamp: new Date().toISOString(), verdict, text: input.text.trim(), model: input.model, selectedId: input.selectedId, correctId: input.correctId, selectedIds, correctIds, diagnostics: { endpoint: diagnostic.endpoint ?? null, durationMs: diagnostic.durationMs ?? null, confidence: diagnostic.confidence ?? null, scores: diagnostic.scores ?? null, usage: diagnostic.usage ?? null, request: diagnostic.request ?? null, answers: diagnostic.answers ?? null, selectionRules: diagnostic.selectionRules ?? null } };
@@ -177,7 +177,9 @@ const server = http.createServer(async (req, res) => {
         const grade = quality === 'best' ? 'A+' : quality === 'worst' ? 'F' : null;
         diagnostics.quality = quality;
         const both = secondary ? catalog.pick(category.id, secondary.id, years, grade) : null;
-        const bothOtherGrade = secondary && grade && !both ? catalog.pick(category.id, secondary.id, years) : null;
+        const bestBoth = secondary && quality === 'best' && !both ? catalog.pickBest(category.id, secondary.id, years) : null;
+        const bestSingle = quality === 'best' && !bestBoth && (!secondary || !both) ? catalog.pickBest(category?.id || null, null, years) : null;
+        const bothOtherGrade = secondary && quality === 'worst' && !both ? catalog.pick(category.id, secondary.id, years) : null;
         let topic = { attempted: false, project: null };
         if (!category && /^tev1(?::|$)/.test(input.model)) {
           const terms = catalog.topicTerms(input.text);
@@ -191,13 +193,16 @@ const server = http.createServer(async (req, res) => {
             if (!Object.hasOwn(criteria, choice)) throw new Error('Model nevrátil platnou volbu tématu.');
             if (choice !== 'none') {
               const term = terms[Number(choice.slice(1))];
-              topic = { ...catalog.searchTopic(term, years, grade), term };
+              topic = { ...(quality === 'best' ? catalog.searchBestTopic(term, years) : catalog.searchTopic(term, years, grade)), term };
             }
           }
         }
-        const project = topic.attempted ? topic.project : both || bothOtherGrade || ((category || years || quality) ? catalog.pick(category?.id || null, null, years, grade) : null);
+        const project = topic.attempted ? topic.project : both || bestBoth || bestSingle || bothOtherGrade || ((category || years || quality) ? catalog.pick(category?.id || null, null, years, grade) : null);
+        const projects = topic.attempted ? (topic.projects || []) : project ? catalog.pickMany(category?.id || null, (both || bestBoth || bothOtherGrade) ? secondary.id : null, years, quality === 'best' ? project.grade : (bothOtherGrade ? null : grade), project) : [];
+        const gradeFallback = !!bothOtherGrade || (quality === 'best' && !!project && project.grade !== 'A+');
+        const usedBothCategories = !!(both || bestBoth || bothOtherGrade);
         diagnostics.durationMs = Math.round(performance.now() - started);
-        return json(res, 200, { category: category || (topic.attempted ? { name: 'Hledání podle textu' } : years || quality ? { name: quality === 'best' ? 'Nejlepší' : quality === 'worst' ? 'Nejhorší' : 'Školní rok' } : null), categories: category ? [category, ...(secondary ? [secondary] : [])] : [], matchedCategories: both || bothOtherGrade ? [category, secondary] : category && project ? [category] : [], fallback: !!secondary && !both && !bothOtherGrade, gradeFallback: !!bothOtherGrade, project, clarification: category || years || quality || topic.attempted ? null : 'Zkus vlastními slovy popsat, jaký typ studentské práce tě zajímá.', projectsConnected: hasWorkData, years, quality, searchMode: topic.attempted ? 'text' : null, searchTerm: topic.term || null, diagnostics });
+        return json(res, 200, { category: category || (topic.attempted ? { name: 'Hledání podle textu' } : years || quality ? { name: quality === 'best' ? 'Nejlepší' : quality === 'worst' ? 'Nejhorší' : 'Školní rok' } : null), categories: category ? [category, ...(secondary ? [secondary] : [])] : [], matchedCategories: usedBothCategories ? [category, secondary] : category && project ? [category] : [], fallback: !!secondary && !usedBothCategories, gradeFallback, qualityOrder: quality === 'best' ? catalog.bestGradeOrder : null, project, projects, clarification: category || years || quality || topic.attempted ? null : 'Zkus vlastními slovy popsat, jaký typ studentské práce tě zajímá.', projectsConnected: hasWorkData, years, quality, searchMode: topic.attempted ? 'text' : null, searchTerm: topic.term || null, diagnostics });
       } catch (error) {
         diagnostics.durationMs = Math.round(performance.now() - started);
         return json(res, 502, { error: error.message, diagnostics });
