@@ -2,6 +2,7 @@ import { readFile, writeFile, rename, mkdir, readdir } from 'node:fs/promises';
 import { randomInt, randomUUID } from 'node:crypto';
 
 const BEST_GRADE_ORDER = ['A+', 'A', 'B', 'C', 'D', 'E', 'F'];
+const WORST_GRADE_ORDER = [...BEST_GRADE_ORDER].reverse();
 
 export async function openCatalog(root, categories, { allowEmpty = false } = {}) {
   let source;
@@ -116,9 +117,16 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     }
     return null;
   }
+  function pickWorst(id, secondId = null, years = null) {
+    for (const grade of WORST_GRADE_ORDER) {
+      const project = pick(id, secondId, years, grade);
+      if (project) return project;
+    }
+    return null;
+  }
   function topicTerms(text) {
     const normalize = value => value.toLocaleLowerCase('cs').normalize('NFD').replace(/\p{M}/gu, '');
-    const stop = new Set(['ukaz','ukazat','ukaž','vyhledej','vyhledat','vyhledam','najdi','najit','najdu','hledej','hledat','chci','chtel','chtela','prosim','nejake','nejaky','neco','zajima','zajimaji','zajimam','hledam','videt','vidim','prace','praci','pracu','praci','projekt','projekty','studentske','studentu','nejlepsi','nejhorsi','nejkrasnejsi','roku','rok','skolni','nejakou','ktere','ktery','ktera','nebo','takove','tykajici','tyka','tykaj','o','me','mi','a','se','je','to','v','z','na','pro','co','jak','bych','chtel bych']);
+    const stop = new Set(['ukaz','ukazat','ukaž','vyhledej','vyhledat','vyhledam','najdi','najit','najdu','hledej','hledat','chci','chtel','chtela','prosim','nejake','nejaky','neco','zajima','zajimaji','zajimam','hledam','videt','vidim','prace','praci','pracu','praci','projekt','projekty','studentske','studentu','nejlepsi','nejhorsi','nejstarsi','nejnovejsi','nove','novy','nova','novou','novych','novym','novymi','nejkrasnejsi','roku','rok','skolni','nejakou','ktere','ktery','ktera','nebo','takove','tykajici','tyka','tykaj','o','me','mi','a','se','je','to','v','z','na','pro','co','jak','bych','chtel bych']);
     return [...new Map((text.toLocaleLowerCase('cs').match(/[\p{L}]+/gu) || []).filter(word => word.length >= 4 && !stop.has(normalize(word))).map(word => [normalize(word), word])).values()].slice(0, 24);
   }
   // Přibližné porovnání vybraných českých tvarů; nejde o úplnou lemmatizaci.
@@ -130,7 +138,30 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     const ending = endings.find(suffix => word.endsWith(suffix) && word.length - suffix.length >= 3);
     return ending ? word.slice(0, -ending.length) : word;
   }
-  function searchTopic(text, years = null, grade = null) {
+  function authorStem(word) {
+    if (/i(?:ho|mu|m)$/.test(word)) return word.replace(/(?:ho|mu|m)$/, '');
+    if (/i$/.test(word)) return word;
+    return /ov(?:a|e|ou)$/.test(word) ? word.replace(/(?:a|e|ou)$/, '') : topicStem(word);
+  }
+  function refineAuthorTerms(selected, input) {
+    const normalize = value => value.toLocaleLowerCase('cs').normalize('NFD').replace(/\p{M}/gu, '');
+    const matches = (a, b) => a === b || authorStem(a) === authorStem(b);
+    const selectedWords = topicTerms(selected).map(normalize);
+    if (!selectedWords.length) return [];
+    const words = topicTerms(input);
+    const possibilities = new Map();
+    for (const project of projects.values()) {
+      for (const person of String(effective(project).author || '').split(/\s*(?:,|;|&|\ba\b)\s*/u)) {
+        const names = normalize(person).match(/[\p{L}]+/gu) || [];
+        if (!selectedWords.every(term => names.some(name => matches(term, name)))) continue;
+        const matched = words.filter(word => names.some(name => matches(normalize(word), name)));
+        const distinct = [...new Map(matched.map(word => [normalize(word), word])).values()];
+        if (distinct.length >= 2) possibilities.set(distinct.map(normalize).sort().join('|'), distinct);
+      }
+    }
+    return possibilities.size === 1 ? [...possibilities.values()][0] : [];
+  }
+  function searchTopic(text, years = null, grade = null, categoryIds = [], authorTerms = []) {
     const normalize = value => value.toLocaleLowerCase('cs').normalize('NFD').replace(/\p{M}/gu, '');
     const terms = topicTerms(text).map(normalize);
     if (!terms.length) return { attempted: false, project: null };
@@ -138,10 +169,14 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     const graded = (grade ? (Array.isArray(grade) ? grade : [grade]) : BEST_GRADE_ORDER).flatMap(value => gradeIndex.get(value) || []);
     const candidates = graded.flatMap(id => {
       if (yearsSet && !yearsSet.has(id)) return [];
+      if (categoryIds.some(categoryId => !(index.get(categoryId) || []).includes(id))) return [];
       const work = effective(projects.get(id));
+      const authorWords = normalize(work.author || '').match(/[\p{L}]+/gu) || [];
+      const people = normalize(work.author || '').split(/\s*(?:,|;|&|\ba\b)\s*/u).map(person => person.match(/[\p{L}]+/gu) || []);
+      if (authorTerms.length && !people.some(person => authorTerms.every(term => person.some(word => word === normalize(term) || authorStem(word) === authorStem(normalize(term)))))) return [];
       const extra = Array.isArray(associations[id]) ? associations[id].join(' ') : '';
-      const words = normalize(`${work.title} ${work.description} ${extra}`).match(/[\p{L}]+/gu) || [];
-      const matches = terms.every(term => words.some(word => word === term || topicStem(word) === topicStem(term) || (term.length >= 6 && word.length >= 6 && word.startsWith(term.slice(0, 6)))));
+      const words = normalize(`${work.title || ""} ${work.author || ""} ${work.description || ""} ${extra}`).match(/[\p{L}]+/gu) || [];
+      const matches = terms.every(term => words.some(word => word === term || topicStem(word) === topicStem(term) || (term.length >= 6 && word.length >= 6 && word.startsWith(term.slice(0, 6)))) || authorWords.some(word => authorStem(word) === authorStem(term)));
       return matches ? [work] : [];
     });
     if (!candidates.length) return { attempted: true, project: null };
@@ -158,9 +193,12 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     const selectedProjects = selected.map(candidate => ({ ...candidate, images: candidate.images.filter(image => !image.hidden) }));
     return { attempted: true, project: selectedProjects[0], projects: selectedProjects };
   }
-  function searchBestTopic(text, years = null) {
-    for (const grade of [['A+', 'A'], 'B', 'C', 'D', 'E', 'F']) {
-      const result = searchTopic(text, years, grade);
+  function searchBestTopic(text, years = null, categoryIds = [], authorTerms = []) {
+    return searchTopic(text, years, null, categoryIds, authorTerms);
+  }
+  function searchWorstTopic(text, years = null, categoryIds = [], authorTerms = []) {
+    for (const grade of WORST_GRADE_ORDER) {
+      const result = searchTopic(text, years, grade, categoryIds, authorTerms);
       if (result.project) return result;
     }
     return { attempted: true, project: null };
@@ -202,5 +240,5 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     }
     return versions;
   }
-  return { categories, list: () => [...projects.values()].map(effective), pick, pickMany, pickBest, bestGradeOrder: [...BEST_GRADE_ORDER], topicTerms, searchTopic, searchBestTopic, update, history, media: id => media.get(id) };
+  return { availableYears: () => [...yearIndex.keys()].filter(y => /^\d{4}\/\d{4}$/.test(y)).sort(), categories, list: () => [...projects.values()].map(effective), pick, pickMany, pickBest, pickWorst, searchWorstTopic, bestGradeOrder: [...BEST_GRADE_ORDER], topicTerms, refineAuthorTerms, searchTopic, searchBestTopic, update, history, media: id => media.get(id) };
 }

@@ -1,6 +1,6 @@
 # Co průvodce posílá modelu Tev1
 
-Popis odpovídá `server.mjs` a `pravidla-vyberu-tagu.json` k 2. listopadu 2026.
+Popis odpovídá `server.mjs` a `pravidla-vyberu-tagu.json` ke 4. listopadu 2026.
 
 - Server odesílá vybraný model a oříznutý text návštěvníka v poli `state` na rozhraní Ollamy `/v1/systemone`.
 - Nezávislé otázky pro každou kategorii `tag_<ID>` typu `choice` nabízí odpovědi `ano` a `ne` a obsahuje název, popis, příklady a hranice z `categories.json`.
@@ -22,3 +22,7 @@ Popis odpovídá `server.mjs` a `pravidla-vyberu-tagu.json` k 2. listopadu 2026.
 Prahy, počet vybraných tagů a výběr práce podle kvality a roku určuje hlavní dokument [aktuální tagy a známky](../data-a-tagy/aktualni-tagy-a-znamky.md).
 
 - Při výběru tématu diagnostika uchovává `topicRequest` a `topicResponse` a celkový čas zahrnuje i tento dodatečný dotaz.
+
+- Místní spouštěč nastavuje `DOD_TOPIC_WITH_TAGS=1`, které zkouší téma také s tagem; výsledky a omezení popisuje [syntetický test](synteticky-test.md#vývojové-porovnání-tématu-s-tagem-4-listopadu-2026).
+
+- Experimentální režim `DOD_TOPIC_WITH_TAGS=1` doplňuje instrukce pro experiment, web, 3D, video, UX, typografii, ilustraci a design informací včetně příkladů odvozených z lidských oprav; výchozí prompt zůstává zachován.

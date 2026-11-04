@@ -54,3 +54,6 @@ Výsledky na různých sadách nejsou přímým důkazem zlepšení a syntetick�
 - Výsledky syntetických testů jsou uložené zvlášť v souborech `vysledky-syntetickych-dotazu*.json` a postup je popsán v `dokumentace/model-a-testovani/synteticky-test.md`.
 - Ruční a syntetické záznamy zůstávají oddělené, aby při vyhodnocení bylo zřejmé, odkud příklady a jejich označení pocházejí.
 - Ani jeden zdroj dat automaticky nemění model, definice tagů nebo pravidla výběru.
+
+- Nový sběr od 4. listopadu 2026 ukládá při vyhodnocení v testeru i průvodci automatický záznam `automatic` do `opravy-rozhodnuti-sber-2026-11-04-novy.jsonl`, včetně názvu modelu a `requestId`; automatický záznam není lidské potvrzení.
+- Případné následné potvrzení či oprava má stejné `requestId`; při vyhodnocování použij poslední ruční záznam a bez něj považuj výsledek pouze za neopravený, nikoli ověřený člověkem.

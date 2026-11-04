@@ -5,8 +5,8 @@ Dokumentace ověřena podle `categories.json`, `pravidla-vyberu-tagu.json`, `ser
 ## Podporované požadavky návštěvníka
 
 - Kategorické tagy níže označuje zaměření práce a lze vybrat nejvýše dva.
-- „Nejlepší“ (`quality: best`) vybírá společně práce se známkami A+ a A a při jejich nedostupnosti sestupuje po známkách B, C, D, E a F; zahrnuje také formulace nejkvalitnější, top a nejpovedenější.
-- „Nejhorší“ (`quality: worst`) vybírá známku F a zahrnuje také formulace nejméně povedené a propadlé.
+- „Nejlepší“ (`quality: best`) vybírá práce sestupně od A+ a A přes B, C, D a E až po F, dokud nenaplní počet výsledků; zahrnuje také formulace nejkvalitnější, top a nejpovedenější.
+- „Nejhorší“ (`quality: worst`) hledá známky v pořadí F, E, D, C, B, A a A+ a zahrnuje také formulace nejméně povedené a propadlé.
 - Školní nebo kalendářní rok funguje jako další filtr a lze jej kombinovat s oborem i kvalitou.
 - Tev1 může vrátit požadavek bez oborového tagu podle prahu hlavní kategorie níže a rok či kvalita fungují také samostatně.
 
@@ -79,16 +79,16 @@ Následující příklady vysvětlují zamýšlené označení podle definic a n
 
 ## Logika více tagů a výběru práce
 
-Tev1 seřadí kategorické tagy podle skóre a vybere první jako hlavní při skóre alespoň 0,5 i při odpovědi „ne“; pokud nejvyšší skóre nedosáhne 0,5, nevybere žádný tag a druhý přidá pouze při odpovědi „ano“ a skóre alespoň 0,5 podle `pravidla-vyberu-tagu.json`.
+Tev1 seřadí tagy s odpovědí „ano“ podle skóre a vybere první jako hlavní při skóre alespoň 0,5; pokud žádný odpovídající tag tohoto prahu nedosáhne, nevybere žádný tag a druhý přidá pouze při odpovědi „ano“ a skóre alespoň 0,5 podle `pravidla-vyberu-tagu.json`.
 
-Práh hlavního tagu je v poli `primaryThreshold` a pravidla mají verzi `rozliseni-web-aplikace-ux-v6`; skóre přesně 0,5 už hlavní tag vybere a po změně konfigurace je nutný restart serveru.
+Práh hlavního tagu je v poli `primaryThreshold` a pravidla mají verzi `rozliseni-web-aplikace-ux-v6`; skóre přesně 0,5 s odpovědí „ano“ umožní výběr hlavního tagu a po změně konfigurace je nutný restart serveru.
 
 Při shodném skóre rozhoduje pořadí kategorií v `categories.json` a skóre není ověřenou pravděpodobností správnosti.
 
 ## Volné téma při nerozpoznaném oboru
 
-- Když Tev1 nevybere hlavní oborový tag, server z významových slov vstupní věty sestaví nabídku a pošle ji Tev1 v samostatné otázce na jedno téma nebo možnost `none`.
-- Při vybraném slově server hledá textovou shodu v názvech, dostupných popisech a asociovaných slovech; zadaný rok a rozpoznaná kvalita zůstávají filtry tohoto hledání.
+- Server z významových slov vstupní věty sestaví nabídku, pokud Tev1 nevybere hlavní oborový tag nebo je místním spouštěčem zapnuté hledání tématu s tagem, a pošle ji Tev1 v samostatné otázce na jedno téma nebo možnost `none`.
+- Při vybraném slově server hledá textovou shodu v názvech, jménech autorů, dostupných popisech a asociovaných slovech; zadaný rok a rozpoznaná kvalita zůstávají filtry tohoto hledání.
 - Při odpovědi `none` server nedosazuje jiné slovo. Pokud návštěvník zadal rok nebo kvalitu, hledá jen podle těchto podmínek; jinak požádá o upřesnění.
 - Požadavek na kvalitu platí jen při souhlasu odpovědi Tev1 a výskytu odpovídajícího výrazu v textu; výslovné „nejlepší“ zkouší společně A+ a A a potom postupně B až F a zachovává další zadané filtry.
 - Kontrola výrazů je omezená na uvedené formulace a jejich některé tvary, takže synonymum mimo seznam nemusí rozpoznat a správné pochopení záporu stále závisí na modelu.
@@ -97,10 +97,10 @@ Při shodném skóre rozhoduje pořadí kategorií v `categories.json` a skóre 
 
 - Pokud Tev1 nevybere obor, dostane samostatnou otázku, která z významových slov návštěvníka vybírá jedno hlavní téma či vlastnost práce nebo možnost žádné téma.
 - Slova se připravují z textu požadavku bez běžných obecných slov a čísel a model si nemůže domýšlet nové téma mimo nabídnutá slova.
-- Katalog pro vybrané slovo hledá shodu v názvech, dostupných výňatcích popisů a asociovaných klíčových slovech (`asociace-praci.json`), ignoruje diakritiku, porovnává přibližné základy českých slov po odstranění vybraných koncovek a u delších slov používá také shodu prvních šesti písmen.
+- Katalog pro vybrané slovo hledá shodu v názvech, jménech autorů, dostupných výňatcích popisů a asociovaných klíčových slovech (`asociace-praci.json`), ignoruje diakritiku, porovnává přibližné základy českých slov po odstranění vybraných koncovek a u delších slov používá také shodu prvních šesti písmen.
 - Výběr zachovává požadovaný rok, známku a viditelný obrázek; při výslovném požadavku „nejlepší“ zkouší společně známky A+ a A a potom postupně B, C, D, E a F; návštěvník uvidí, pokud bylo nutné sestoupit pod A. Bez preference kvality prohledává všechny známky a bez shody práci nenahrazuje jinou.
 - Několik nepravidelných tvarů je řešeno zvlášť, ale nejde o úplné skloňování ani lemmatizaci, podobný základ může spojit nesouvisející slova a shoda včetně asociací nemusí znamenat, že je téma pro práci podstatné.
-- Volné téma se zatím nehledá, pokud model vybere oborový tag, a ostatní chatovací modely tento postup zatím nepoužívají.
+- Při spuštění místním spouštěčem se po výběru oborových tagů zkouší také hledání tématu mezi pracemi s těmito tagy; pokud téma nenajde odpovídající práci, výběr se tiše vrátí k tagům a zachová rok a kvalitu. Při `DOD_TOPIC_WITH_TAGS=0` zůstává původní postup a ostatní chatovací modely toto hledání nepoužívají.
 - Pokud žádné významové slovo nezbývá, průvodce žádá upřesnění nebo vybírá podle samostatného roku či kvality a skutečná relevance vyžaduje ověření s návštěvníky.
 
 ## Tester rozhodování
@@ -113,7 +113,7 @@ Při shodném skóre rozhoduje pořadí kategorií v `categories.json` a skóre 
 
 Rok, nejlepší a nejhorší doplňují hlavní kategorický tag nebo fungují samostatně, pokud Tev1 nevybral žádný obor.
 
-Model také rozpoznává požadavek na **nejlepší** práce (společně A+ a A, při nedostupnosti postupně B, C, D, E a F) nebo **nejhorší** (F). Bez této preference prohledáváme všechny známky. Jiné modely zatím vybírají nejvýše jeden tag a kvalitu nerozpoznávají.
+Model také rozpoznává požadavek na **nejlepší** práce (postupně A+, A, B, C, D, E a F) nebo **nejhorší** (od F směrem k A+). Bez této preference prohledáváme všechny známky. Jiné modely zatím vybírají nejvýše jeden tag a kvalitu nerozpoznávají.
 
 Rok rozpoznává aplikace z čísla v dotazu: **2025/2026** vybere daný školní rok, zatímco **2025** zahrne roky 2024/2025 i 2025/2026. Zkrácené „roku 25“ znamená kalendářní rok 2025 a používá stejný výběr dvou školních let. Výrazy jako „loni“ zatím nepodporujeme.
 
@@ -125,9 +125,9 @@ Při výslovném požadavku na nejlepší práci se známka hledá v tomto pořa
 2. Pokud taková práce není, oba tagy postupně se známkou B, C, D, E a F.
 3. Pokud kombinace tagů nevrátí práci v žádné známce, hlavní tag se známkou A+ nebo A a potom B až F; na vynechání druhého tagu průvodce upozorní.
 
-U požadavku na nejlepší bez druhého tagu se stejné pořadí použije pro hlavní tag; při hledání podle volného tématu nebo pouze roku a kvality se zachová téma či rok a zkouší se stejné pořadí známek. Bez preference známky se hledají všechny známky. Požadavek na nejhorší zůstává známkou F a dosavadním náhradním postupem pouze při dvojici tagů. Zadaný rok zůstává zachovaný ve všech krocích. Bez tagu, roku a preference kvality aplikace požádá o upřesnění a nevybere práci; neplatná odpověď modelu je chyba.
+U požadavku na nejlepší bez druhého tagu se stejné pořadí použije pro hlavní tag; při hledání podle volného tématu nebo pouze roku a kvality se zachová téma či rok a zkouší se stejné pořadí známek. Bez preference známky se hledají všechny známky. Požadavek na nejhorší hledá při stejných podmínkách nejprve F, potom E, D, C, B, A a A+; u dvojice nejprve projde všechny známky pro oba tagy a teprve potom zkusí hlavní tag. Zadaný rok zůstává zachovaný ve všech krocích. Bez tagu, roku a preference kvality aplikace požádá o upřesnění a nevybere práci; neplatná odpověď modelu je chyba.
 
-Práce musí mít alespoň jeden viditelný obrázek. Při každém způsobu hledání aplikace prohledá celý způsobilý katalog a vybere a zobrazí až 10 různých odpovídajících prací v pořadí známek A+, A, B, C, D, E a F; práce se stejnou známkou se vybírají náhodně; API je vrací v poli `projects` a první také v `project`. Při požadavku na nejlepší se společně zobrazí práce A+ i A; pokud nejsou dostupné, zobrazí se práce s nejvyšší dostupnou nižší známkou. Pokud má aplikace na výběr mezi pracemi s nejlepší dostupnou známkou, první práci nezopakuje po předchozím výběru. Pokud nic nevyhovuje, oznámí to.
+Práce musí mít alespoň jeden viditelný obrázek. Při každém způsobu hledání aplikace prohledá celý způsobilý katalog a vybere a zobrazí až 10 různých odpovídajících prací v pořadí známek A+, A, B, C, D, E a F; práce se stejnou známkou se vybírají náhodně; API je vrací v poli `projects` a první také v `project`. Při požadavku na nejlepší se zobrazí až deset odpovídajících prací postupně podle známky A+, A, B, C, D, E a F; po vyčerpání lepší známky doplní následující. Pokud má aplikace na výběr mezi pracemi s nejlepší dostupnou známkou, první práci nezopakuje po předchozím výběru. Pokud nic nevyhovuje, oznámí to.
 
 Indexy tagů, roků a známek se obnovují po uložení změn. Nastavení prahu je v `pravidla-vyberu-tagu.json`, zpracování dotazu v `server.mjs` a výběr práce v `catalog.mjs`. Zajímaví absolventi zatím nejsou součástí výběru.
 
@@ -236,3 +236,15 @@ Tyto návrhy zatím nejsou mezi používanými tagy aplikace.
 - Uživatel schválil rozdělení původní skupiny podle verze Codex a podrobnosti uchování starších verzí jsou ve [zpětném tagování](../model-a-testovani/Zpětné%20tagování.md#schválení-a-nasazení-verze-codex).
 
 - Ověření 3. listopadu 2026 pokrývá v odděleném testovacím katalogu příklady „horách“ / „hora“ a „zvířaty“ / „zvíře“, omezení roku a známky i negativní případ „hrady“ / „hradby“; skutečná relevance na širší sadě ani u návštěvníků zatím nebyla změřena.
+
+- Hledání tématu s tagem je vývojová verze; víceslovné výrazy a zápory nejsou obecně spolehlivé a textová shoda nezaručuje významovou relevanci.
+
+- Při hledání námětu se pro vybraný vizuální styl z nabídky odstraňují i tvary slova „vizuál“, takže například u vizuálu festivalu zůstává jako možné téma festival.
+
+- „Nejstarší“, „nejnovější“ a „nové“ procházejí odpovídající školní roky od nejstaršího nahoru nebo u „nejnovější“ a „nové“ od nejnovějšího dolů a doplňují práce až do deseti; v každém roce se uplatní také požadovaná kvalita.
+- Výslovně uvedený rok omezuje dostupné školní roky; neplatné či chybějící školní roky se do řazení nezahrnují, opačné současné požadavky na stáří pořadí neurčí.
+
+- Při současném požadavku „nejnovější“ nebo „nejstarší“ a „nejlepší“ se roky procházejí zvoleným směrem a zařazují se výhradně práce se známkou A+ nebo A; když nejsou, nižší známka se nepoužije.
+
+- Když vybraný hledaný výraz odpovídá jménu autora a další slovo požadavku se shoduje se stejným autorem, hledání použije obě části jména; při více možných kombinacích ponechá původní výraz.
+- Porovnání jmen ignoruje diakritiku a používá přibližné základy včetně tvarů příjmení na „-i“ a „-iho“; krátká jména pod čtyři znaky a nepravidelné tvary nemusí rozpoznat.
