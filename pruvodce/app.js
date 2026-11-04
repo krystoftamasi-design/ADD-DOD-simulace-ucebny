@@ -234,7 +234,7 @@ async function loadCategories() {
   try { const { categories } = await api('/api/categories'); categoryNames = new Map(categories.map(category => [category.id, category.name])); feedbackCategory.replaceChildren(new Option('Vyber správný tag', ''), new Option('Žádný oborový tag', 'unknown'), ...categories.map(category => new Option(category.name, category.id))); feedbackSecond.replaceChildren(new Option('Žádný druhý tag', ''), ...categories.map(category => new Option(category.name, category.id))); missingCategory.replaceChildren(new Option('Vyber chybějící tag', ''), ...categories.map(category => new Option(category.name, category.id))); document.querySelector('#category-list').replaceChildren(...categories.map(category => { const chip = document.createElement('span'); chip.textContent = category.name; return chip; })); }
   catch { /* Connection information is displayed by loadModels. */ }
 }
-loadModels(); loadCategories();
+loadModels(); const categoriesReady = loadCategories();
 
 const inspect = id => document.querySelector(`#${id}`);
 inspect('toggle-dashboard').addEventListener('click', () => {
@@ -326,3 +326,25 @@ function renderDecisionHistory() {
   }
 }
 inspect('clear-history').addEventListener('click', () => { if (pendingDecision) return; decisions = []; selectedDecision = null; renderInspection(null); renderDecisionHistory(); });
+if (new URLSearchParams(location.search).get('panel') === 'decision') {
+  document.body.classList.add('decision-embed');
+  managerToggle.click();
+  inspect('toggle-dashboard').click();
+  let revision = '';
+  async function refreshDecision() {
+    await categoriesReady;
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/voice/decision?after=' + revision);
+      if (!response.ok) throw new Error();
+      const update = await response.json();
+      if (!update.unchanged) {
+        revision = update.revision;
+        const data = update.decision;
+        if (data.pending) beginInspection(data.diagnostics.input, data.diagnostics.model);
+        else completeInspection({...data,time:new Date().toLocaleTimeString('cs-CZ')});
+      }
+    } catch { inspect('decision-phase').textContent = 'Čekám na spojení s učebnou…'; }
+    setTimeout(refreshDecision, 1000);
+  }
+  refreshDecision();
+}

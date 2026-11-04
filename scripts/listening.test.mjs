@@ -1,59 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ListeningState } from '../src/listening.js';
-
-const finger = z => ({x:50,y:50,z});
-
-test('touch starts listening and a nearby finger keeps it active', () => {
-  const state = new ListeningState();
-  state.touch(finger(5), 0);
-  state.update(finger(8), 5000);
-  assert.equal(state.active, true);
+const finger=z=>({x:50,y:50,z});
+test('contact starts listening and holding keeps it active',()=>{
+  const state=new ListeningState();state.touch(finger(5),0);
+  state.update(finger(8),5000);assert.equal(state.active,true);
 });
-
-test('removing the finger stops listening after the release delay', () => {
-  const state = new ListeningState();
-  state.touch(finger(5), 0);
-  state.update(null, 100);
-  state.update(null, 699);
-  assert.equal(state.active, true);
-  state.update(null, 700);
-  assert.equal(state.active, false);
+test('confirmed loss of contact stops recording and does not restart without a new touch',()=>{
+  const state=new ListeningState();state.touch(finger(5),0);
+  state.update(null,100);assert.equal(state.active,true);
+  state.update(null,220);assert.equal(state.active,false);
+  state.update(finger(5),200);assert.equal(state.active,false);
+  state.touch(finger(5),300);assert.equal(state.active,true);
 });
-
-test('lifting a still detected finger also stops listening', () => {
-  const state = new ListeningState();
-  state.touch(finger(5), 0);
-  state.update(finger(30), 100);
-  state.update(finger(30), 700);
-  assert.equal(state.active, false);
+test('a confirmed lift stops recording while the finger is still in range',()=>{
+  const state=new ListeningState();state.touch(finger(5),0);
+  state.update(finger(30),100);assert.equal(state.active,true);
+  state.update(finger(30),220);assert.equal(state.active,false);
 });
-
-test('a brief detection gap does not stop listening', () => {
-  const state = new ListeningState();
-  state.touch(finger(5), 0);
-  state.update(null, 100);
-  state.update(finger(5), 500);
-  state.update(finger(5), 1000);
-  assert.equal(state.active, true);
+test('one low Z sample does not move the release threshold underneath a held finger',()=>{
+  const state=new ListeningState();state.touch(finger(20),0);
+  state.update(finger(3),100);state.update(finger(20),200);
+  assert.equal(state.active,true);
+  state.update(finger(33),300);state.update(finger(33),420);assert.equal(state.active,false);
 });
-
-test('moving close again requires another touch after listening stopped', () => {
-  const state = new ListeningState();
-  state.touch(finger(5), 0);
-  state.update(null, 100);
-  state.update(null, 700);
-  state.update(finger(5), 800);
-  assert.equal(state.active, false);
-  state.touch(finger(5), 900);
-  assert.equal(state.active, true);
+test('one missing or raised sample does not interrupt a held contact',()=>{
+  const state=new ListeningState();state.touch(finger(5),0);
+  state.update(null,100);state.update(finger(5),200);assert.equal(state.active,true);
+  state.update(finger(40),300);state.update(finger(5),400);assert.equal(state.active,true);
 });
-
-test('mouse-only preview remains controlled by clicking', () => {
-  const state = new ListeningState();
-  state.toggle();
-  state.update(null, 10000);
-  assert.equal(state.active, true);
-  state.toggle();
-  assert.equal(state.active, false);
+test('mouse-only preview remains controlled by clicking',()=>{
+  const state=new ListeningState();state.toggle();state.update(null,10000);
+  assert.equal(state.active,true);state.toggle();assert.equal(state.active,false);
 });

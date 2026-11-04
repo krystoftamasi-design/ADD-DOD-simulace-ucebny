@@ -3,8 +3,15 @@ import { networkInterfaces } from 'node:os';
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { basename } from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 import { proximityFromSensor } from './proximity.mjs';
+import { startGuideService } from './guide-service.mjs';
+import { transcribe,speechAvailable } from './speech.mjs';
+import { VoiceSession } from './voice-session.mjs';
+import { SpawnController } from './spawn-state.mjs';
+import { HoverReset,advanceResetGesture } from './hover-reset.mjs';
+import { demoScenes,demoSpawn } from './demo-scenes.mjs';
 
 const addresses = Object.values(networkInterfaces()).flat().filter(item => item.family === 'IPv4' && !item.internal).map(item => item.address);
 const address = process.env.DOD_ADDRESS || addresses[0] || '127.0.0.1';
@@ -13,14 +20,34 @@ const hostnames = new Set([...addresses.map(ip => `${ip}:${port}`), `${address}:
 const layoutFile = new URL('./layout.json', import.meta.url);
 const assets = new Map([
   ['/', ['display.html', 'text/html']],
+  ['/projector', ['display.html', 'text/html']],
   ['/room/display.js', ['display.js', 'text/javascript']],
   ['/room/timeline.js', ['timeline.js', 'text/javascript']],
   ['/room/sync.js', ['sync.js', 'text/javascript']],
+  ['/room/guide-renderer.js', ['guide-renderer.js','text/javascript']],
+  ['/room/live-edit.js', ['live-edit.js','text/javascript']],
+  ['/room/mascot.js', ['mascot.js', 'text/javascript']],
+  ['/room/procedural-body.js', ['../mascot/procedural-body.js', 'text/javascript']],
+  ['/room/cursor-follow.js', ['../mascot/cursor-follow.js', 'text/javascript']],
+  ...['mascot-canvas.js','spawn-model.js','spawn-renderer.js','bubble-flight.js','reset-model.js','work-presentation.js'].map(file => ['/room/'+file, ['../mascot/'+file, 'text/javascript']]),
+  ...['Regular','Ultrabold'].map(weight=>['/room/fonts/PPNeueMachina-Plain'+weight+'.otf',['../pruvodce/fonts/PPNeueMachina-Plain'+weight+'.otf','font/otf']]),
+  ['/room/native-body.json', ['../mascot/native-body.json', 'application/json']],
+  ['/room/mascot.json', ['../mascot/mascot.json', 'application/json']],
 ]);
 let registry = [];
 try { registry = JSON.parse(await readFile(layoutFile, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const peers = new Map();
 let state = {mode:process.env.DOD_ANIMATE==='1'?'animation':'identify', playing:process.env.DOD_ANIMATE==='1', elapsed:0, startAt:performance.now()+500, stepMs:2500, route:'all', order:[], revision:0,experiment:process.env.DOD_PROXIMITY==='1',proximity:{from:0,to:0,at:0,duration:120},sensorConnected:false};
+const spawnController=new SpawnController(performance.now());
+const hoverReset=new HoverReset();
+state.spawn=spawnController.state;
+let config={};try{config=JSON.parse(await readFile(new URL('./local-session.json',import.meta.url),'utf8'));}catch{}
+const dataDir=process.env.DOD_DATA_DIR||config.dataDir;
+const guide=dataDir?await startGuideService(dataDir).catch(error=>{console.error(error.message);return null;}):null;
+const whisperModel=process.env.DOD_WHISPER_MODEL||config.whisperModel;
+const voice=new VoiceSession({classify:text=>{if(!guide)throw new Error('Katalog není připojený.');return guide.classify(text);},transcribe:audio=>transcribe(audio,whisperModel),stations:()=>[...new Set(screens().filter(s=>s.station&&s.visible&&s.ready).map(s=>s.station))].sort((a,b)=>a-b),
+  onChange:current=>{console.log('Hlas:',current.session,current.phase);state.guide=current;for(const ws of peers.keys())send(ws,{type:'guide',guide:current});}});
+state.guide=voice.state;
 let saveQueue = Promise.resolve();
 function saveLayout() {
   const json = JSON.stringify(registry, null, 2) + '\n';
@@ -35,10 +62,11 @@ function screens() {
 function roster() {const message={type:'roster',screens:screens()};for(const [ws,peer] of peers)if(peer.role!=='display')send(ws,message);}
 function broadcast() {
   state.revision++;
-  for(const [ws,peer] of peers)send(ws,{type:'state',state,station:peer.preview?1:peer.record?.station ?? null});
+  for(const [ws,peer] of peers)send(ws,{type:'state',state,station:peer.projector?'projector':peer.preview?1:peer.record?.station ?? null});
   roster();
 }
 function updateOrder() {
+  voice.redistribute();
   const online = new Set(screens().filter(peer => peer.visible).map(peer => peer.station).filter(Boolean));
   const expected = state.route === 'pair' ? [8,7] : [1,2,3,4,5,6,7,8,9,10];
   const order=expected.filter(station=>online.has(station));
@@ -64,6 +92,14 @@ function applyControl(command) {
   } else if(command.action==='experiment') {
     if(typeof command.enabled!=='boolean')throw new Error('enabled must be boolean');
     state.experiment=command.enabled;
+  } else if(command.action==='spawn-reset') {
+    hoverReset.reset();voice.reset();state.spawn=spawnController.reset(performance.now());state.experiment=true;state.mode='animation';
+  } else if(command.action==='floating') {
+    hoverReset.reset();voice.reset();state.spawn={...spawnController.state,enabled:false};state.experiment=false;
+    state.proximity={from:0,to:0,at:performance.now(),duration:120};
+    state.mode='animation';state.playing=true;state.elapsed=0;state.startAt=performance.now()+500;
+  } else if(command.action==='image') {
+    if(!voice.changeImage(command.session,command.station,command.step))throw new Error('Fotografii nelze přepnout.');
   } else if(command.action==='reload') {
     for(const ws of peers.keys())send(ws,{type:'reload'});
     return state;
@@ -86,15 +122,69 @@ function applyControl(command) {
 function allowed(req) {
   if(!hostnames.has(req.headers.host))return false;
   const origin=req.headers.origin;
-  return !origin||origin===`http://${req.headers.host}`||origin==='http://127.0.0.1:8765'||origin==='http://localhost:8765';
+  return !origin||origin===`http://${req.headers.host}`||/^http:\/\/(127\.0\.0\.1|localhost):(8765|5173|18187)$/.test(origin);
 }
 const server=http.createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   if(!allowed(req)){res.writeHead(403).end();return;}
   const url=new URL(req.url,`http://${req.headers.host}`);
+  if(req.headers.origin){res.setHeader('Access-Control-Allow-Origin',req.headers.origin);res.setHeader('Vary','Origin');}
+  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'}).end();return;}
+  if(url.pathname.startsWith('/api/voice/')){
+    if(!isLocal(req.socket)){res.writeHead(403).end();return;}
+    res.setHeader('Content-Type','application/json');
+    try{
+      if(url.pathname==='/api/voice/decision'&&req.method==='GET'){
+        const latest=guide?.decision();res.end(JSON.stringify(!latest||url.searchParams.get('after')===String(latest.revision)?{unchanged:true}:latest));return;
+      }
+      if(url.pathname==='/api/voice/status'&&req.method==='GET'){
+        const status=guide?await guide.status():{projects:0,model:null};res.end(JSON.stringify({...status,speech:await speechAvailable(whisperModel),speechModel:whisperModel?basename(whisperModel):null,guide:state.guide}));return;
+      }
+      if(url.pathname==='/api/voice/demos'&&req.method==='GET'){
+        res.end(JSON.stringify({scenes:demoScenes}));return;
+      }
+      if(req.method!=='POST'){res.writeHead(405).end();return;}
+      const audio=url.pathname==='/api/voice/audio';
+      let size=0,chunks=[];
+      for await(const chunk of req){size+=chunk.length;if(size>(audio?12*1024*1024:8192)){res.writeHead(413).end();return;}chunks.push(chunk);}
+      const body=Buffer.concat(chunks),input=audio?{}:JSON.parse(body.toString());
+      if(url.pathname==='/api/voice/demo'){
+        const scene=demoScenes.find(item=>item.id===input.scene);
+        if(!scene)throw Object.assign(new Error('Neznámá ukázka animace.'),{status:400});
+        if(scene.id==='live')applyControl({action:'spawn-reset'});
+        else{
+          if(scene.works&&!guide)throw new Error('Katalog není připojený.');
+          const sample=scene.works?guide.sample(scene.works):{};
+          hoverReset.reset();state.spawn=demoSpawn(state.spawn,scene,performance.now());
+          if(scene.works)state.experiment=true;
+          state.mode='animation';state.playing=true;state.elapsed=0;state.startAt=performance.now();
+          voice.preview(scene,sample.projects,sample.category);broadcast();
+        }
+      }else if(url.pathname==='/api/voice/start'){
+        if(voice.state.demo)applyControl({action:'spawn-reset'});
+        if(!voice.begin())throw Object.assign(new Error('Ještě zpracovávám předchozí požadavek.'),{status:409});
+      }else if(url.pathname==='/api/voice/claim'){
+        if(typeof input.owner!=='string'||input.owner.length>100||!voice.claim(input.session,input.owner)){res.writeHead(409).end(JSON.stringify({error:'Mikrofon už používá jiné okno.'}));return;}
+      }else if(url.pathname==='/api/voice/error'){
+        voice.fail(input.session,String(input.message||'Nahrávání se nepodařilo.').slice(0,200));
+      }else if(audio){
+        if(voice.owner!==url.searchParams.get('owner'))throw Object.assign(new Error('Nahrávání patří jinému oknu.'),{status:409});
+        console.log('Nahrávka:',url.searchParams.get('session'),body.length,'B');await voice.submit({session:Number(url.searchParams.get('session')),audio:body});
+      }else if(url.pathname==='/api/voice/text'){
+        if(typeof input.text!=='string'||!input.text.trim()||input.text.length>2000)throw Object.assign(new Error('Zadej krátký požadavek.'),{status:400});
+        if(voice.state.demo)applyControl({action:'spawn-reset'});
+        if(!voice.begin({replace:true}))throw Object.assign(new Error('Ještě zpracovávám předchozí požadavek.'),{status:409});await voice.submit({session:voice.serial,text:input.text});
+      }else{res.writeHead(404).end();return;}
+      res.end(JSON.stringify({guide:state.guide}));
+    }catch(error){res.writeHead(error.status||500).end(JSON.stringify({error:error.message}));}return;
+  }
+  if(/^\/guide\/media\/\d+$/.test(url.pathname)&&req.method==='GET'){
+    try{if(!guide)throw new Error();const response=await fetch(guide.url+url.pathname.slice(6));if(!response.ok)throw new Error();res.setHeader('Content-Type',response.headers.get('content-type')||'image/jpeg');res.end(Buffer.from(await response.arrayBuffer()));}
+    catch{res.writeHead(404).end();}return;
+  }
   if(url.pathname==='/favicon.ico'){res.writeHead(204).end();return;}
   if(url.pathname==='/api/status'){
-    res.setHeader('Content-Type','application/json');res.end(JSON.stringify({state,screens:screens(),registered:registry}));return;
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify({state,screens:screens(),registered:registry,imageReadiness:voice.imageReadiness()}));return;
   }
   if(url.pathname==='/api/control'&&req.method==='POST'){
     if(!isLocal(req.socket)){res.writeHead(403).end();return;}
@@ -118,7 +208,8 @@ server.on('upgrade',(req,socket,head)=>{
   const url=new URL(req.url,`http://${req.headers.host}`),role=url.searchParams.get('role');
   if(!allowed(req)||url.pathname!=='/room/ws'||!['display','control','observer'].includes(role)||(role==='control'&&!isLocal(socket))){socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
   wss.handleUpgrade(req,socket,head,ws=>{
-    const preview=url.searchParams.get('preview')==='1';
+    const projector=role==='display'&&url.searchParams.get('surface')==='projector';
+    const preview=projector||url.searchParams.get('preview')==='1';
     let record=null;
     if(role==='display'&&!preview){
       const id=url.searchParams.get('id');
@@ -127,8 +218,8 @@ server.on('upgrade',(req,socket,head)=>{
       for(const [old,peer] of peers)if(peer.record?.id===record.id){peers.delete(old);old.close(1000,'Reconnected');}
       record.ip=socket.remoteAddress;
     }
-    const peer={role,preview,record,visible:true,width:0,height:0,ready:false,rtt:null,alive:true};peers.set(ws,peer);
-    send(ws,{type:'welcome',id:record?.id||'preview',number:record?.number||'?',station:preview?1:record?.station??null,state});
+    const peer={role,preview,projector,record,visible:true,width:0,height:0,ready:false,rtt:null,alive:true};peers.set(ws,peer);
+    send(ws,{type:'welcome',id:record?.id||'preview',number:record?.number||'?',station:projector?'projector':preview?1:record?.station??null,state});
     updateOrder();
     ws.on('error',()=>{});
     ws.on('pong',()=>{peer.alive=true;});
@@ -136,30 +227,59 @@ server.on('upgrade',(req,socket,head)=>{
       let message;try{message=JSON.parse(raw.toString());}catch{return;}
       if(!message||typeof message!=='object')return;
       if(message.type==='ping'&&Number.isInteger(message.id)){const receivedAt=performance.now();send(ws,{type:'pong',id:message.id,receivedAt,sentAt:performance.now()});}
+      else if(message.type==='work-ready'&&peer.record?.station&&!peer.preview){voice.imagesReady(message.session,peer.record.station,message.url||null);}
+      else if(message.type==='work-image'&&peer.record?.station&&!peer.preview){voice.changeImage(message.session,peer.record.station,message.step);}
       else if(message.type==='viewport'){
         if(Number.isFinite(message.width)&&Number.isFinite(message.height)&&message.width>0&&message.height>0){peer.width=message.width;peer.height=message.height;peer.visible=message.visible===true;updateOrder();}
-      }else if(message.type==='ready'&&Number.isFinite(message.rtt)&&message.rtt>=0){peer.ready=true;peer.rtt=message.rtt;roster();}
+      }else if(message.type==='ready'&&Number.isFinite(message.rtt)&&message.rtt>=0){peer.ready=true;peer.rtt=message.rtt;updateOrder();}
       else if(message.type==='control'&&role==='control'){try{applyControl(message);}catch(error){send(ws,{type:'notice',message:error.message});}}
     });
     ws.on('close',()=>{peers.delete(ws);updateOrder();});
   });
 });
+function updateSpawn(sensor){
+  if(voice.state.demo&&voice.state.phase!=='presenting')return;
+  const now=performance.now();
+  if(!state.spawn.enabled)return;
+  if(voice.state.resetGesture?.phase==='burst'){updateReset(sensor,now);return;}
+  const next=voice.state.demo?state.spawn:spawnController.update(sensor,now,Date.now(),hoverReset.latched);
+  if(next!==state.spawn){
+    if(next.phase!==state.spawn.phase)console.log('Flick contact:',JSON.stringify({from:state.spawn.phase,to:next.phase,position:sensor?.position,samples:sensor?.samples,touchId:sensor?.touchId}));
+    if(next.phase==='listening'&&state.spawn.phase!=='listening')voice.begin({holdToTalk:true});
+    if(next.phase!=='listening'&&state.spawn.phase==='listening'&&voice.state.holdToTalk)voice.finish();
+    state.spawn=next;for(const ws of peers.keys())send(ws,{type:'spawn',spawn:next});}
+  updateReset(sensor,now);
+}
+function updateReset(sensor,now){
+  const event=advanceResetGesture(hoverReset,voice,spawnController,sensor,now,{
+    enabled:!['idle','listening','finishing'].includes(voice.state.phase),touching:spawnController.contact.active});
+  if(event==='burst'){
+    state.spawn=spawnController.state;state.mode='animation';
+    console.log('Hover reset: burst after 1.5 seconds');broadcast();
+  }else if(event==='complete'){state.spawn=spawnController.state;broadcast();}
+}
 let proximityBusy=false;
 const proximityTimer=setInterval(async()=>{
+  voice.tick();
+  if(voice.state.resetGesture?.phase==='burst')updateReset(null,performance.now());
   if(proximityBusy)return;
   proximityBusy=true;
-  let target=0,connected=false;
+  let target=0,connected=false,sensor=null;
   try{
     if(state.experiment){
       const response=await fetch('http://127.0.0.1:8765/state',{signal:AbortSignal.timeout(800)});
-      if(response.ok){const sensor=await response.json();target=proximityFromSensor(sensor);connected=sensor.connected===true;}
+      if(!response.ok)throw new Error('Flick bridge unavailable');
+      sensor=await response.json();target=proximityFromSensor(sensor);connected=sensor.connected===true;
     }
+    updateSpawn(sensor);
     if(Math.abs(target-state.proximity.to)>.003||connected!==state.sensorConnected){
       state.proximity={from:state.proximity.to,to:target,at:performance.now(),duration:target===0?350:120};
       state.sensorConnected=connected;
       for(const ws of peers.keys())send(ws,{type:'proximity',proximity:state.proximity,sensorConnected:connected});
     }
   }catch{
+    if(voice.state.resetGesture?.phase==='holding')updateReset(null,performance.now());
+    // A failed HTTP poll is not a sensor sample indicating that the finger lifted.
     if(state.proximity.to!==0||state.sensorConnected){
       state.proximity={from:state.proximity.to,to:0,at:performance.now(),duration:350};state.sensorConnected=false;
       for(const ws of peers.keys())send(ws,{type:'proximity',proximity:state.proximity,sensorConnected:false});
@@ -171,5 +291,5 @@ const heartbeat=setInterval(()=>{
   roster();
 },5000);heartbeat.unref();
 server.listen(port,'0.0.0.0',()=>console.log(`Classroom displays: http://dod.local:${port}/ (http://${address}:${port}/)`));
-function shutdown(){clearInterval(heartbeat);clearInterval(proximityTimer);for(const ws of peers.keys())ws.terminate();server.close(()=>process.exit(0));}
+function shutdown(){guide?.stop();clearInterval(heartbeat);clearInterval(proximityTimer);for(const ws of peers.keys())ws.terminate();server.close(()=>process.exit(0));}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

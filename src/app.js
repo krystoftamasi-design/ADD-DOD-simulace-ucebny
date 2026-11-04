@@ -1,6 +1,7 @@
+import {setupVoice} from './voice.js?v=demo-r1';
 import * as THREE from 'three';
-import { addTableProjector } from './projector.js?v=monitor-20261103';
-import { connectFlick } from './flick.js';
+import { addTableProjector } from './projector.js?v=contact-r4';
+import { connectFlick } from './flick.js?v=contact-r4';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -166,34 +167,55 @@ renderer.domElement.addEventListener('pointerup',event=>{
  if(pointAt(event))openProjection();
 });
 renderer.domElement.addEventListener('pointercancel',()=>{pointerDown=null});
+let voiceUi;
 function refreshControls(client){
+ voiceUi?.update(client.state?.());
  const connected=client.connected,state=connected?client.state():standaloneState,count=client.roster?.length||0;
  document.querySelector('#room-status').textContent=connected?'Učebna · '+count+' obrazovek · '+client.roster.filter(item=>item.station).length+' přiřazeno':'Samostatný náhled';
  document.querySelector('#room-identify').disabled=!connected;
  if(!state)return;
  document.querySelector('#play').textContent=state.playing?'Pozastavit':'Spustit';
  document.querySelector('#room-identify').textContent=state.mode==='identify'?'Skrýt čísla':'Čísla na obrazovkách';
- document.querySelector('#room-experiment').textContent=state.experiment?'Vypnout množení kuliček':'Zapnout množení kuliček';
+ document.querySelector('#room-experiment').textContent=state.experiment?'Vypnout Flick':'Zapnout Flick';
  document.querySelector('#route').value=state.route;
  document.querySelector('#speed').value=2500/state.stepMs;
  document.querySelector('#speed-value').textContent=(2500/state.stepMs)+'×';
 }
 // The public HTTPS preview runs independently; LAN control is available on this Mac.
 const localControl=location.protocol==='http:'&&['127.0.0.1','localhost'].includes(location.hostname);
+const guideDialog=document.querySelector('#guide-preview');
+const guideFrame=document.querySelector('#guide-frame');
+const guideOpen=document.querySelector('#guide-open');
+guideOpen.hidden=!localControl;
+guideOpen.onclick=()=>{
+ if(!guideFrame.hasAttribute('src'))guideFrame.src='http://127.0.0.1:18187/?panel=decision';
+ guideDialog.showModal();
+};
+document.querySelector('#guide-close').onclick=()=>guideDialog.close();
+guideDialog.addEventListener('click',event=>{if(event.target===guideDialog)guideDialog.close();});
 const simulateAll=document.querySelector('#simulate-all');
 simulateAll.checked=!localControl;
 const room=localControl?new window.DodRoom({role:'control',url:'ws://127.0.0.1:8000/room/ws',onChange:refreshControls}):{connected:false};
+voiceUi=setupVoice({room});
 refreshControls(room);
+function simulatedGuide(guide,order){
+ if(!guide)return guide;
+ const result=guide.phase==='presenting'?{...guide,assignments:(guide.projects||[guide.project]).filter(Boolean).slice(0,order.length).map((project,i)=>({station:order[i],project}))}:guide;
+ return guide.resetGesture?{...result,resetGesture:{...guide.resetGesture,source:simulatedGuide(guide.resetGesture.source,order)}}:result;
+}
 function renderScreens(now){
  const connected=room.connected&&room.state();
  const state=connected?room.state():standaloneState;
  const serverTime=connected?room.time(now):now;
  if(serverTime===null)return;
- const viewState=simulateAll.checked?{...state,order:state.route==='pair'?[8,7]:layout.map(item=>item.id)}:state;
- const online=new Set(connected?room.roster.filter(item=>item.visible&&item.station).map(item=>item.station):[]);
+ const simulatedOrder=state.route==='pair'?[8,7]:layout.map(item=>item.id);
+ const previewAll=simulateAll.checked||!!state.guide?.demo;
+ const viewState=previewAll?{...state,order:simulatedOrder,guide:simulatedGuide(state.guide,simulatedOrder)}:state;
+ tableProjector.setRoomState(viewState,serverTime);
+ const online=new Set(connected?room.roster.filter(item=>item.station).map(item=>item.station):[]);
  for(const [id,screen] of screens){
   const ctx=screen.canvas.getContext('2d');
-  if(!simulateAll.checked&&!online.has(id)){ctx.fillStyle='#080d10';ctx.fillRect(0,0,screen.canvas.width,screen.canvas.height);}
+  if(!previewAll&&!online.has(id)){ctx.fillStyle='#080d10';ctx.fillRect(0,0,screen.canvas.width,screen.canvas.height);}
   else window.DodTimeline.draw(ctx,screen.canvas.width,screen.canvas.height,id,viewState,serverTime);
   screen.texture.needsUpdate=true;
  }
@@ -227,3 +249,7 @@ document.querySelector('#room-experiment').onclick=()=>{
  if(room.connected){room.command('experiment',{enabled:!room.state().experiment});return;}
  standaloneState.experiment=!standaloneState.experiment;refreshControls(room);
 };
+
+document.querySelector('#spawn-reset').onclick=()=>{if(room.connected)room.command('spawn-reset',{});};
+
+document.querySelector('#floating-mode').onclick=()=>{if(room.connected)room.command('floating',{});};

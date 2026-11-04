@@ -1,0 +1,1044 @@
+{
+  "schema": 1,
+  "source": {
+    "file": "digimon_file.aep",
+    "composition": "s_mrkanim",
+    "width": 1080,
+    "height": 1350,
+    "fps": 30,
+    "workAreaSeconds": 5.43333333333333,
+    "fullCompositionSeconds": 150
+  },
+  "palette": {
+    "body": "#cddc29",
+    "outline": "#ffffff",
+    "eyeWhite": "#ffffff",
+    "pupil": "#000000"
+  },
+  "body": {
+    "sourceLayer": "Shape Layer 12",
+    "circleDiameter": 75,
+    "outlineWidthBeforeLayerScale": 8,
+    "layerScalePercent": [
+      134,
+      134,
+      100
+    ],
+    "position": [
+      540.843023376465,
+      608.053557739258,
+      0
+    ],
+    "repeaters": [
+      {
+        "copies": 6,
+        "offset": -2,
+        "step": [
+          54,
+          10
+        ]
+      },
+      {
+        "copies": 7,
+        "offset": -2,
+        "step": [
+          -11,
+          40
+        ]
+      }
+    ],
+    "wiggle": {
+      "frequency": 2,
+      "correlation": 0,
+      "seed": 0,
+      "position": [
+        38,
+        -35
+      ],
+      "scalePercent": [
+        -15,
+        -15
+      ],
+      "rotationDegrees": 106
+    },
+    "allVectorParameters": [
+      {
+        "name": "Blend Mode",
+        "matchName": "ADBE Vector Blend Mode",
+        "value": 1
+      },
+      {
+        "name": "Shape Direction",
+        "matchName": "ADBE Vector Shape Direction",
+        "value": 1
+      },
+      {
+        "name": "Size",
+        "matchName": "ADBE Vector Ellipse Size",
+        "value": [
+          75,
+          75
+        ]
+      },
+      {
+        "name": "Position",
+        "matchName": "ADBE Vector Ellipse Position",
+        "value": [
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Blend Mode",
+        "matchName": "ADBE Vector Blend Mode",
+        "value": 1
+      },
+      {
+        "name": "Composite",
+        "matchName": "ADBE Vector Composite Order",
+        "value": 1
+      },
+      {
+        "name": "Color",
+        "matchName": "ADBE Vector Stroke Color",
+        "value": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Opacity",
+        "matchName": "ADBE Vector Stroke Opacity",
+        "value": 100
+      },
+      {
+        "name": "Stroke Width",
+        "matchName": "ADBE Vector Stroke Width",
+        "value": 8
+      },
+      {
+        "name": "Line Cap",
+        "matchName": "ADBE Vector Stroke Line Cap",
+        "value": 1
+      },
+      {
+        "name": "Line Join",
+        "matchName": "ADBE Vector Stroke Line Join",
+        "value": 1
+      },
+      {
+        "name": "Miter Limit",
+        "matchName": "ADBE Vector Stroke Miter Limit",
+        "value": 4
+      },
+      {
+        "name": "Dash",
+        "matchName": "ADBE Vector Stroke Dash 1",
+        "value": 10
+      },
+      {
+        "name": "Gap",
+        "matchName": "ADBE Vector Stroke Gap 1",
+        "value": 10
+      },
+      {
+        "name": "Dash 2",
+        "matchName": "ADBE Vector Stroke Dash 2",
+        "value": 10
+      },
+      {
+        "name": "Gap 2",
+        "matchName": "ADBE Vector Stroke Gap 2",
+        "value": 10
+      },
+      {
+        "name": "Dash 3",
+        "matchName": "ADBE Vector Stroke Dash 3",
+        "value": 10
+      },
+      {
+        "name": "Gap 3",
+        "matchName": "ADBE Vector Stroke Gap 3",
+        "value": 10
+      },
+      {
+        "name": "Offset",
+        "matchName": "ADBE Vector Stroke Offset",
+        "value": 0
+      },
+      {
+        "name": "Length Units",
+        "matchName": "ADBE Vector Taper Length Units",
+        "value": 1
+      },
+      {
+        "name": "Start Length",
+        "matchName": "ADBE Vector Taper Start Length",
+        "value": 0
+      },
+      {
+        "name": "End Length",
+        "matchName": "ADBE Vector Taper End Length",
+        "value": 0
+      },
+      {
+        "name": "Start Length",
+        "matchName": "ADBE Vector Taper StartWidthPx",
+        "value": 0
+      },
+      {
+        "name": "End Length",
+        "matchName": "ADBE Vector Taper EndWidthPx",
+        "value": 0
+      },
+      {
+        "name": "Start Width",
+        "matchName": "ADBE Vector Taper Start Width",
+        "value": 0
+      },
+      {
+        "name": "End Width",
+        "matchName": "ADBE Vector Taper End Width",
+        "value": 0
+      },
+      {
+        "name": "Start Ease",
+        "matchName": "ADBE Vector Taper Start Ease",
+        "value": 0
+      },
+      {
+        "name": "End Ease",
+        "matchName": "ADBE Vector Taper End Ease",
+        "value": 0
+      },
+      {
+        "name": "Amount",
+        "matchName": "ADBE Vector Taper Wave Amount",
+        "value": 0
+      },
+      {
+        "name": "Units",
+        "matchName": "ADBE Vector Taper Wave Units",
+        "value": 1
+      },
+      {
+        "name": "Wavelength",
+        "matchName": "ADBE Vector Taper Wavelength",
+        "value": 100
+      },
+      {
+        "name": "Cycles",
+        "matchName": "ADBE Vector Taper Wave Cycles",
+        "value": 10
+      },
+      {
+        "name": "Phase",
+        "matchName": "ADBE Vector Taper Wave Phase",
+        "value": 0
+      },
+      {
+        "name": "Blend Mode",
+        "matchName": "ADBE Vector Blend Mode",
+        "value": 1
+      },
+      {
+        "name": "Composite",
+        "matchName": "ADBE Vector Composite Order",
+        "value": 1
+      },
+      {
+        "name": "Fill Rule",
+        "matchName": "ADBE Vector Fill Rule",
+        "value": 1
+      },
+      {
+        "name": "Color",
+        "matchName": "ADBE Vector Fill Color",
+        "value": [
+          0.80392156862745,
+          0.86274509803922,
+          0.16078431372549,
+          1
+        ]
+      },
+      {
+        "name": "Opacity",
+        "matchName": "ADBE Vector Fill Opacity",
+        "value": 100
+      },
+      {
+        "name": "Anchor Point",
+        "matchName": "ADBE Vector Anchor",
+        "value": [
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Position",
+        "matchName": "ADBE Vector Position",
+        "value": [
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Scale",
+        "matchName": "ADBE Vector Scale",
+        "value": [
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Skew",
+        "matchName": "ADBE Vector Skew",
+        "value": 0
+      },
+      {
+        "name": "Skew Axis",
+        "matchName": "ADBE Vector Skew Axis",
+        "value": 0
+      },
+      {
+        "name": "Rotation",
+        "matchName": "ADBE Vector Rotation",
+        "value": 0
+      },
+      {
+        "name": "Opacity",
+        "matchName": "ADBE Vector Group Opacity",
+        "value": 100
+      },
+      {
+        "name": "Copies",
+        "matchName": "ADBE Vector Repeater Copies",
+        "value": 6
+      },
+      {
+        "name": "Offset",
+        "matchName": "ADBE Vector Repeater Offset",
+        "value": -2
+      },
+      {
+        "name": "Composite",
+        "matchName": "ADBE Vector Repeater Order",
+        "value": 1
+      },
+      {
+        "name": "Anchor Point",
+        "matchName": "ADBE Vector Repeater Anchor",
+        "value": [
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Position",
+        "matchName": "ADBE Vector Repeater Position",
+        "value": [
+          54,
+          10
+        ]
+      },
+      {
+        "name": "Scale",
+        "matchName": "ADBE Vector Repeater Scale",
+        "value": [
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Rotation",
+        "matchName": "ADBE Vector Repeater Rotation",
+        "value": 0
+      },
+      {
+        "name": "Start Opacity",
+        "matchName": "ADBE Vector Repeater Opacity 1",
+        "value": 100
+      },
+      {
+        "name": "End Opacity",
+        "matchName": "ADBE Vector Repeater Opacity 2",
+        "value": 100
+      },
+      {
+        "name": "Copies",
+        "matchName": "ADBE Vector Repeater Copies",
+        "value": 7
+      },
+      {
+        "name": "Offset",
+        "matchName": "ADBE Vector Repeater Offset",
+        "value": -2
+      },
+      {
+        "name": "Composite",
+        "matchName": "ADBE Vector Repeater Order",
+        "value": 1
+      },
+      {
+        "name": "Anchor Point",
+        "matchName": "ADBE Vector Repeater Anchor",
+        "value": [
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Position",
+        "matchName": "ADBE Vector Repeater Position",
+        "value": [
+          -11,
+          40
+        ]
+      },
+      {
+        "name": "Scale",
+        "matchName": "ADBE Vector Repeater Scale",
+        "value": [
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Rotation",
+        "matchName": "ADBE Vector Repeater Rotation",
+        "value": 0
+      },
+      {
+        "name": "Start Opacity",
+        "matchName": "ADBE Vector Repeater Opacity 1",
+        "value": 100
+      },
+      {
+        "name": "End Opacity",
+        "matchName": "ADBE Vector Repeater Opacity 2",
+        "value": 100
+      },
+      {
+        "name": "Wiggles/Second",
+        "matchName": "ADBE Vector Xform Temporal Freq",
+        "value": 2
+      },
+      {
+        "name": "Correlation",
+        "matchName": "ADBE Vector Correlation",
+        "value": 0
+      },
+      {
+        "name": "Temporal Phase",
+        "matchName": "ADBE Vector Temporal Phase",
+        "value": 0
+      },
+      {
+        "name": "Spatial Phase",
+        "matchName": "ADBE Vector Spatial Phase",
+        "value": 0
+      },
+      {
+        "name": "Random Seed",
+        "matchName": "ADBE Vector Random Seed",
+        "value": 0
+      },
+      {
+        "name": "Anchor Point",
+        "matchName": "ADBE Vector Wiggler Anchor",
+        "value": [
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Position",
+        "matchName": "ADBE Vector Wiggler Position",
+        "value": [
+          38,
+          -35
+        ]
+      },
+      {
+        "name": "Scale",
+        "matchName": "ADBE Vector Wiggler Scale",
+        "value": [
+          -15,
+          -15
+        ]
+      },
+      {
+        "name": "Rotation",
+        "matchName": "ADBE Vector Wiggler Rotation",
+        "value": 106
+      }
+    ]
+  },
+  "eyes": [
+    {
+      "side": "left",
+      "center": [
+        449.9248046875,
+        639.88427734375
+      ],
+      "whiteRadius": 45.43,
+      "pupilRadius": 45.43,
+      "referencePupilOffset": [
+        24.433349108327338,
+        -29.673419752858948
+      ],
+      "sourceWhiteLayer": "Shape Layer 3",
+      "sourcePupilLayer": "Shape Layer 4"
+    },
+    {
+      "side": "right",
+      "center": [
+        643.872467041016,
+        639.88427734375
+      ],
+      "whiteRadius": 45.43,
+      "pupilRadius": 45.43,
+      "referencePupilOffset": [
+        24.433349108327338,
+        -29.673419752858948
+      ],
+      "sourceWhiteLayer": "Shape Layer 13",
+      "sourcePupilLayer": "Shape Layer 14"
+    }
+  ],
+  "blink": {
+    "sourceFrames": {
+      "openUntil": 48,
+      "closedFrom": 48,
+      "brieflyOpenFrom": 51,
+      "closedAgainFrom": 53,
+      "openAgainFrom": 56
+    },
+    "durationSeconds": 0.26666666666666666,
+    "note": "Original alternates black rectangles with open eyes. It does not shrink the eyes.",
+    "closedRects": [
+      {
+        "x": 403.31413080662855,
+        "y": 626.07258587119,
+        "width": 94.8148148148148,
+        "height": 17.3827160493827
+      },
+      {
+        "x": 597.2617931601446,
+        "y": 626.07258587119,
+        "width": 94.8148148148148,
+        "height": 17.3827160493827
+      }
+    ]
+  },
+  "gazeTracks": [
+    {
+      "layer": "Shape Layer 20",
+      "properties": [
+        {
+          "name": "Position",
+          "matchName": "ADBE Position",
+          "index": 2,
+          "valueType": "6413",
+          "value": [
+            -83.5,
+            -55.5,
+            0
+          ],
+          "expression": "",
+          "expressionEnabled": false,
+          "keys": [
+            {
+              "time": 2.06666666666667,
+              "value": [
+                -83.5,
+                -55.5,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6613",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 77.2450892878925
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 2.6,
+              "value": [
+                -110.136596679688,
+                -3.49522399902344,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6612",
+              "inEase": [
+                {
+                  "speed": 109.55528906371,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 109.873439661154,
+                  "influence": 16.666666667
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 3.03333333333333,
+              "value": [
+                -145.652053833008,
+                -35.2054443359375,
+                0
+              ],
+              "inInterpolation": "6613",
+              "outInterpolation": "6613",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 67.9451248587983
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 34.3644416583931
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 3.36666666666667,
+              "value": [
+                -83.5,
+                -55.5,
+                0
+              ],
+              "inInterpolation": "6613",
+              "outInterpolation": "6612",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 61.3465468092119
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "Shape Layer 14",
+      "properties": [
+        {
+          "name": "Position",
+          "matchName": "ADBE Position",
+          "index": 2,
+          "valueType": "6413",
+          "value": [
+            -83.5,
+            -55.5,
+            0
+          ],
+          "expression": "",
+          "expressionEnabled": false,
+          "keys": [
+            {
+              "time": 0.06666666666667,
+              "value": [
+                -83.5,
+                -55.5,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6613",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 78.9850646576819
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                39.047607421875,
+                28.4306030273438,
+                0
+              ],
+              "outTangent": [
+                -39.047607421875,
+                -28.4306030273438,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 1.53333333333333,
+              "value": [
+                -142.759262084961,
+                -49.1790161132812,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6612",
+              "inEase": [
+                {
+                  "speed": 46.4124976956915,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "Shape Layer 10",
+      "properties": [
+        {
+          "name": "Position",
+          "matchName": "ADBE Position",
+          "index": 2,
+          "valueType": "6413",
+          "value": [
+            -83.5,
+            -55.5,
+            0
+          ],
+          "expression": "",
+          "expressionEnabled": false,
+          "keys": [
+            {
+              "time": 2.06666666666667,
+              "value": [
+                -83.5,
+                -55.5,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6613",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 77.2450892878925
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 2.6,
+              "value": [
+                -110.136596679688,
+                -3.49522399902344,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6612",
+              "inEase": [
+                {
+                  "speed": 109.55528906371,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 109.873439661154,
+                  "influence": 16.666666667
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 3.03333333333333,
+              "value": [
+                -145.652053833008,
+                -35.2054443359375,
+                0
+              ],
+              "inInterpolation": "6613",
+              "outInterpolation": "6613",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 67.9451248587983
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 34.3644416583931
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 3.36666666666667,
+              "value": [
+                -83.5,
+                -55.5,
+                0
+              ],
+              "inInterpolation": "6613",
+              "outInterpolation": "6612",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 61.3465468092119
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "Shape Layer 4",
+      "properties": [
+        {
+          "name": "Position",
+          "matchName": "ADBE Position",
+          "index": 2,
+          "valueType": "6413",
+          "value": [
+            -83.5,
+            -55.5,
+            0
+          ],
+          "expression": "",
+          "expressionEnabled": false,
+          "keys": [
+            {
+              "time": 0.06666666666667,
+              "value": [
+                -83.5,
+                -55.5,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6613",
+              "inEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 78.9850646576819
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                39.047607421875,
+                28.4306030273438,
+                0
+              ],
+              "outTangent": [
+                -39.047607421875,
+                -28.4306030273438,
+                0
+              ],
+              "roving": false
+            },
+            {
+              "time": 1.53333333333333,
+              "value": [
+                -142.759262084961,
+                -49.1790161132812,
+                0
+              ],
+              "inInterpolation": "6612",
+              "outInterpolation": "6612",
+              "inEase": [
+                {
+                  "speed": 46.4124976956915,
+                  "influence": 16.666666667
+                }
+              ],
+              "outEase": [
+                {
+                  "speed": 0,
+                  "influence": 16.666666667
+                }
+              ],
+              "temporalContinuous": false,
+              "temporalAutoBezier": false,
+              "inTangent": [
+                0,
+                0,
+                0
+              ],
+              "outTangent": [
+                0,
+                0,
+                0
+              ],
+              "roving": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fidelity": {
+    "body.svg": "Vector trace of native AE body at 0.7 seconds. Not the editable procedural AE geometry.",
+    "eyes": "Ellipse geometry, positions and parent scale extracted from AEP; pupil evaluated at 0.7 seconds by py-aep.",
+    "motion": "The default procedural-body.js constructs 42 independent ellipses directly from the body parameters and uses its own continuous gradient noise. It matches the design/character rather than Adobe noise exactly. motion.json remains a separate baked AE comparison mode.",
+    "bodymovin_5_12_1": "Shape resolver has no mapping for ADBE Vector Filter - Wiggler. Raw HTML export cannot preserve it."
+  }
+}

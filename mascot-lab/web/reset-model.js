@@ -1,0 +1,1 @@
+../../mascot/reset-model.js

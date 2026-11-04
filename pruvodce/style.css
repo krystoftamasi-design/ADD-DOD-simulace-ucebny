@@ -95,3 +95,5 @@
 :root .version-notice-current{background:#e2f2e4;color:#225638;border:1px solid #87b48c}
 
 @media(max-width:600px){.guide-page #feedback form{grid-template-columns:1fr}.guide-page #feedback form button{width:100%}}
+
+body.decision-embed{padding:0;margin:0}body.decision-embed main{width:100%;max-width:none;padding:12px;margin:0}body.decision-embed main > :not(#manager-tools),body.decision-embed .manager-model{display:none}body.decision-embed .decision-panel{margin:0}

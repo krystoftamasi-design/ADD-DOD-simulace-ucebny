@@ -51,3 +51,20 @@ test('the shared height and clock work with different monitor aspect ratios',()=
  const paused={...room,playing:false,elapsed:2300};
  near(placements(paused,999999,3,.09)[0].x,wide.x);
 });
+
+
+test('presented work remains visible under the travelling mascot while spawn is enabled',()=>{
+ const calls=[];
+ context.DodGuide={draw:(ctx,w,h,station,guide)=>{calls.push('work');return guide.phase==='presenting';}};
+ context.DodSpawn={draw:()=>calls.push('spawn')};
+ context.DodMascot={draw:()=>calls.push('mascot')};
+ const canvas={fillRect(){}};
+ context.DodTimeline.draw(canvas,1000,500,3,{...state([3,4]),mode:'animation',guide:{phase:'presenting'},spawn:{enabled:true}},1000);
+ assert.deepEqual(calls,['work','mascot']);
+ calls.length=0;context.DodGuide.ownsPresentation=true;
+ context.DodTimeline.draw(canvas,1000,500,3,{...state([3,4]),mode:'animation',guide:{phase:'presenting'},spawn:{enabled:true}},1000);
+ assert.deepEqual(calls,['work']);
+ calls.length=0;
+ context.DodTimeline.draw(canvas,1000,500,3,{...state([3,4]),mode:'animation',guide:{phase:'idle'},spawn:{enabled:true}},1000);
+ assert.deepEqual(calls,['work','spawn']);
+});

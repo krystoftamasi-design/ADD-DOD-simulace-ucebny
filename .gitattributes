@@ -1,0 +1,2 @@
+# Preserve bundled upstream sources byte-for-byte, including license headers.
+mascot-lab/web/vendor/** -whitespace

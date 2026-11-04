@@ -1,0 +1,1 @@
+../../mascot/spawn-model.js

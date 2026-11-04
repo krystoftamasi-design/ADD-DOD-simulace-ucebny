@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ListeningState } from './listening.js';
+import { ListeningState } from './listening.js?v=contact-r4';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // A ceiling-mounted, downward-facing projector over the front empty desk.
@@ -84,13 +84,13 @@ export function addTableProjector(scene, x, z) {
   texture.colorSpace = THREE.SRGBColorSpace;
   const projection = new THREE.Mesh(
     new THREE.PlaneGeometry(projectionWidth, projectionDepth),
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: .92, toneMapped: false })
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: .92, toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   projection.rotation.x = -Math.PI / 2;
   projection.position.y = 1.496;
   group.add(projection);
   const particles=Array.from({length:24},(_,i)=>({x:canvas.width*.117+(i*173)%(canvas.width*.78),y:85+(i*107)%470,r:8+(i%4)*3,phase:i*1.7}));
-  let pointer=null, sensor=null, previousTime=0;
+  let pointer=null, sensor=null, previousTime=0,roomState=null,roomTime=0;
   const listening=new ListeningState();
   const finger=new THREE.Mesh(new THREE.SphereGeometry(.065,20,16),new THREE.MeshBasicMaterial({color:'#f5ffff',transparent:true,opacity:.8}));
   finger.visible=false;group.add(finger);
@@ -102,6 +102,12 @@ export function addTableProjector(scene, x, z) {
     const strength=sensor ? .3+.65*(1-sensor.z/100) : .55;
     finger.visible=!!sensor;
     if(sensor)finger.position.set((sensor.x/100-.5)*flickWidth,1.6+sensor.z/100*.7,flickCenterZ+(.5-sensor.y/100)*flickDepth);
+    if(roomState?.guide&&window.DodGuide?.draw(ctx,canvas.width,canvas.height,'projector',roomState.guide,roomTime,roomState.spawn)){texture.needsUpdate=true;return;}
+    if(roomState?.spawn&&!roomState.spawn.enabled){ctx.clearRect(0,0,canvas.width,canvas.height);texture.needsUpdate=true;return;}
+    if(roomState?.spawn?.enabled&&window.DodSpawn){
+      window.DodSpawn.draw(ctx,canvas.width,canvas.height,'projector',roomState.spawn,roomTime,roomState.guide);
+      texture.needsUpdate=true;return;
+    }
     ctx.fillStyle='#f3ffe2'; ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.strokeStyle='#dcecc8'; ctx.lineWidth=2;
     for(let px=32;px<canvas.width;px+=64){ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,canvas.height);ctx.stroke()}
@@ -137,6 +143,7 @@ export function addTableProjector(scene, x, z) {
   light.target = target;
   group.add(light);
   return {group, projection, plate, face, canvas, update,
+    setRoomState(state,time){roomState=state;roomTime=time;},
     setPointer(uv){ pointer=uv ? {x:uv.x*canvas.width,y:(1-uv.y)*canvas.height} : null; },
     setSensor(position){sensor=position;},
     startListening(){listening.touch(sensor,performance.now());},

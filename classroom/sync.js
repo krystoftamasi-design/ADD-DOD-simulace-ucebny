@@ -12,6 +12,7 @@
       var url=options.url+'?role='+encodeURIComponent(options.role);
       if(id)url+='&id='+encodeURIComponent(id);
       if(options.preview)url+='&preview=1';
+      if(options.surface==='projector')url+='&surface=projector';
       ws=new WebSocket(url);
       ws.onopen=function(){
         samples=[];pending={};offset=null;lastFrame=null;
@@ -23,9 +24,13 @@
         if(message.type==='welcome'){
           id=message.id;identity=message.number;station=message.station;state=message.state;
           api.connected=true;
-          if(options.role==='display'&&!options.preview){try{localStorage.setItem('dod-room-client',id);}catch(ignore){}}
+          if(options.role==='display'&&!options.preview&&options.surface!=='projector'){try{localStorage.setItem('dod-room-client',id);}catch(ignore){}}
           send({type:'viewport',width:root.innerWidth,height:root.innerHeight,visible:!document.hidden});notify();
         } else if(message.type==='state') {state=message.state;station=message.station===undefined?station:message.station;notify();
+        } else if(message.type==='guide'){
+          if(state)state.guide=message.guide;notify();
+        } else if(message.type==='spawn'){
+          if(state)state.spawn=message.spawn;notify();
         } else if(message.type==='proximity'){
           if(state){state.proximity=message.proximity;state.sensorConnected=message.sensorConnected;}
         } else if(message.type==='reload'){location.reload();
@@ -45,13 +50,15 @@
       };
       ws.onerror=function(){};
     }
-    var api={connected:false,roster:[],state:function(){return state;},station:function(){return station;},label:function(){return station?('0'+station).slice(-2):('0'+identity).slice(-2);},
+    var api={connected:false,roster:[],state:function(){return state;},station:function(){return station;},label:function(){if(station==='projector')return 'Projekce';return station?('0'+station).slice(-2):('0'+identity).slice(-2);},
       time:function(frameTime){
         var current=frameTime===undefined?now():frameTime;
         if(offset===null)return null;
         var delta=lastFrame===null?16:Math.max(0,Math.min(100,current-lastFrame));lastFrame=current;
         offset+=Math.max(-delta*.02,Math.min(delta*.02,targetOffset-offset));return current+offset;
       },
+      imagesReady:function(session,url){send({type:'work-ready',session:session,url:url||null});},
+      changeImage:function(session,step){send({type:'work-image',session:session,step:step});},
       command:function(action,values){var command={type:'control',action:action};for(var k in values)if(Object.prototype.hasOwnProperty.call(values,k))command[k]=values[k];send(command);}
     };
     root.addEventListener('resize',function(){send({type:'viewport',width:root.innerWidth,height:root.innerHeight,visible:!document.hidden});});

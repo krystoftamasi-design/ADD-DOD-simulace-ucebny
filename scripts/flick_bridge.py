@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Read the existing Pico JSON stream and serve it to the classroom simulator."""
 import argparse
+import array
+import fcntl
 import glob
 import json
 import os
@@ -10,10 +12,21 @@ import signal
 import termios
 import threading
 import time
+from collections import deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 ORIGINS = {"https://ucebna-dod-simulator.noobest.chatgpt.site"}
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
+ANIMATION_ASSETS = {
+    **{f"/room/{name}": SOURCE_ROOT / "classroom" / name for name in
+       ("mascot.js", "guide-renderer.js", "live-edit.js", "timeline.js")},
+    **{f"/room/{name}": SOURCE_ROOT / "mascot" / name for name in
+       ("mascot-canvas.js", "procedural-body.js", "cursor-follow.js", "spawn-model.js",
+        "spawn-renderer.js", "bubble-flight.js", "reset-model.js", "work-presentation.js", "mascot.json", "native-body.json")},
+    **{f"/room/fonts/PPNeueMachina-Plain{weight}.otf": SOURCE_ROOT / "pruvodce" / "fonts" / f"PPNeueMachina-Plain{weight}.otf"
+       for weight in ("Regular", "Ultrabold")},
+}
 
 
 def messages(buffer):
@@ -41,8 +54,10 @@ class Sensor:
         self.port = port
         self.stop = threading.Event()
         self.lock = threading.Lock()
-        self.state = {"connected": False, "position": None, "touchId": 0, "touchAt": 0, "samples": 0}
+        self.state = {"connected": False, "position": None, "touching": None, "touchId": 0, "touchAt": 0, "samples": 0}
         self.updated = 0
+        self.trace = deque(maxlen=256)
+        self.events = deque(maxlen=32)
 
     def publish(self, **values):
         with self.lock:
@@ -50,26 +65,41 @@ class Sensor:
 
     def snapshot(self):
         with self.lock:
-            current = dict(self.state)
-            if time.monotonic() - self.updated > 1:
-                current["position"] = None
-            return current
+            # Unchanged coordinates need not produce a new USB sample.
+            # Only an explicit absence sample or disconnect clears contact.
+            state = dict(self.state)
+            if self.updated and time.monotonic() - self.updated > 3:
+                state.update(connected=False, position=None, touching=False)
+            return state
 
     def accept(self, message):
         now = time.monotonic()
         kind = message.get("type")
-        if kind not in ("sample", "ready", "event"):
+        if kind not in ("sample", "ready", "event", "contact", "heartbeat"):
             return
+        record = {"at": int(time.time() * 1000), "message": message}
+        with self.lock:
+            self.trace.append(record)
+            if kind == "event":
+                self.events.append(record)
         self.updated = now
         values = {"connected": True}
+        pressed = message.get("pressed") if kind == "contact" else message.get("touching")
+        if type(pressed) is bool:
+            values["touching"] = pressed
+            if pressed and self.state["touching"] is not True:
+                values.update(touchId=self.state["touchId"] + 1, touchAt=int(time.time() * 1000))
         if kind == "sample":
             coords = [message.get(key) for key in ("x", "y", "z")]
             valid = all(type(v) in (int, float) and 0 <= v <= 100 for v in coords)
+            absent = all(key in message and message[key] is None for key in ("x", "y", "z"))
+            if not valid and not absent:
+                return
             values["position"] = dict(zip(("x", "y", "z"), coords)) if valid else None
             values["samples"] = self.state["samples"] + 1
         elif kind == "ready":
-            values["sensorReady"] = message.get("gestic") is True
-        elif str(message.get("name", "")).startswith(("Dotyk ", "Tap ", "Dvojitý tap ")):
+            values.update(sensorReady=message.get("gestic") is True, position=None, touching=False)
+        elif self.state["touching"] is None and str(message.get("name", "")).startswith("Dotyk "):
             values.update(touchId=self.state["touchId"] + 1, touchAt=int(time.time() * 1000))
         self.publish(**values)
 
@@ -77,33 +107,40 @@ class Sensor:
         while not self.stop.is_set():
             paths = [self.port] if self.port else sorted(glob.glob("/dev/cu.usbmodem*"))
             if not paths:
-                self.publish(connected=False, position=None)
+                self.publish(connected=False, position=None, touching=False)
                 self.stop.wait(1)
                 continue
             fd = None
             old = None
             try:
-                fd = os.open(paths[0], os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY)
+                fd = os.open(paths[0], os.O_RDWR | os.O_NONBLOCK | os.O_NOCTTY)
                 old = termios.tcgetattr(fd)
                 attrs = termios.tcgetattr(fd)
                 attrs[0] = attrs[1] = attrs[3] = 0
+                attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+                attrs[4] = attrs[5] = termios.B115200
                 attrs[6][termios.VMIN] = attrs[6][termios.VTIME] = 0
                 termios.tcsetattr(fd, termios.TCSANOW, attrs)
+                fcntl.ioctl(fd, termios.TIOCMBIS, array.array("i", [termios.TIOCM_DTR | termios.TIOCM_RTS]))
                 buffer = ""
+                last_bytes = time.monotonic()
                 while not self.stop.is_set():
                     if not os.path.exists(paths[0]):
                         raise OSError("USB disconnected")
                     if not select.select([fd], [], [], .25)[0]:
+                        if time.monotonic() - last_bytes > 5:
+                            raise OSError("USB stream timed out")
                         continue
                     chunk = os.read(fd, 8192)
                     if not chunk:
                         raise OSError("USB disconnected")
+                    last_bytes = time.monotonic()
                     buffer += chunk.decode("utf-8", "replace")
                     items, buffer = messages(buffer)
                     for item in items:
                         self.accept(item)
             except (OSError, termios.error):
-                self.publish(connected=False, position=None)
+                self.publish(connected=False, position=None, touching=False)
                 self.stop.wait(1)
             finally:
                 if fd is not None:
@@ -122,6 +159,11 @@ def serve(sensor, root, port):
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(root), **kwargs)
+
+        def translate_path(self, path):
+            # Serve shared animation sources directly, even when the scene uses dist/.
+            source = ANIMATION_ASSETS.get(urlsplit(path).path)
+            return str(source) if source else super().translate_path(path)
 
         def allowed_request(self):
             # Restrict both DNS rebinding and cross-origin reads of USB data.
@@ -148,8 +190,14 @@ def serve(sensor, root, port):
                 self.send_error(403)
                 return
             path = urlsplit(self.path).path
-            if path == "/state":
-                payload = json.dumps(sensor.snapshot()).encode()
+            if path in ("/state", "/diagnostics"):
+                if path == "/diagnostics":
+                    snapshot = sensor.snapshot()
+                    with sensor.lock:
+                        data = {"state": snapshot, "events": list(sensor.events), "trace": list(sensor.trace)}
+                else:
+                    data = sensor.snapshot()
+                payload = json.dumps(data).encode()
                 self.send_response(200)
                 self.cors()
                 self.send_header("Content-Type", "application/json")

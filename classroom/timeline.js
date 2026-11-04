@@ -76,6 +76,7 @@
     return result;
   }
   function drawBall(ctx,width,height,ball,radius){
+    if(root.DodMascot){root.DodMascot.draw(ctx,width,height,ball,radius);return;}
     ctx.save();ctx.translate(ball.x*width,ball.y*height);
     ctx.fillStyle='#d5f52b';ctx.strokeStyle='#f7ffde';ctx.lineWidth=radius*.055;
     ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -89,15 +90,19 @@
     ctx.restore();
   }
   function draw(ctx, width, height, station, state, now, label) {
-    ctx.fillStyle = '#111c27';ctx.fillRect(0,0,width,height);
-    if (state.mode === 'identify') {
+    ctx.fillStyle = '#000000';ctx.fillRect(0,0,width,height);
+    if (state.mode === 'identify' || !station) {
       ctx.fillStyle = '#d5f52b';ctx.textAlign = 'center';ctx.textBaseline = 'middle';
       ctx.font = 'bold ' + Math.floor(Math.min(height * .72,width * .55)) + 'px Arial,sans-serif';
       ctx.fillText(label || ('0' + station).slice(-2),width/2,height/2);
       ctx.textAlign = 'start';ctx.textBaseline = 'alphabetic';return;
     }
+    var presenting=state.guide&&state.guide.phase==='presenting';
+    var hasWork=state.guide&&root.DodGuide&&root.DodGuide.draw(ctx,width,height,station,state.guide,now,state.spawn);
+    if(hasWork&&(!presenting||root.DodGuide.ownsPresentation||now-state.guide.revealAt<(root.DodGuide.revealDuration||400)))return;
+    if(!presenting&&state.spawn&&state.spawn.enabled&&root.DodSpawn){root.DodSpawn.draw(ctx,width,height,station,state.spawn,now,state.guide);return;}
     if (!state.order || !state.order.length) return;
-    if(state.order.indexOf(station)>=0)drawField(ctx,width,height,station,proximityAmount(state,now),now);
+    if(!presenting&&state.order.indexOf(station)>=0)drawField(ctx,width,height,station,proximityAmount(state,now),now);
     var radius=Math.min(height*.16,width*.14),balls=placements(state,now,station,radius/width);
     for(var i=0;i<balls.length;i++)drawBall(ctx,width,height,balls[i],radius);
   }

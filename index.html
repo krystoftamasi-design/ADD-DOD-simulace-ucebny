@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Učebna · simulátor maskota</title>
-  <link rel="stylesheet" href="src/style.css?v=monitor-20261103">
+  <link rel="stylesheet" href="src/style.css?v=demo-r1">
   <script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
 </head>
 <body>
@@ -21,7 +21,8 @@
         <div class="view-controls" aria-label="Pohled"><button id="eye" class="active">Od návštěvníka</button><button id="top">Nadhled</button></div>
         <button id="table-view" class="table-view">Projekční stůl</button>
         <button id="projection-open" class="table-view">Zvětšit projekci</button>
-        <div class="flick-controls"><label class="simulate-toggle"><input id="simulate-all" type="checkbox"> Simulovat všechny počítače</label><button id="room-identify">Čísla na obrazovkách</button><button id="room-experiment" class="table-view">Množení kuliček</button><p id="room-status" role="status">Připojuji obrazovky v učebně…</p></div>
+        <button id="guide-open" class="table-view" hidden>Jak rozhodl Tev1</button>
+        <div class="flick-controls"><label class="simulate-toggle"><input id="simulate-all" type="checkbox"> Simulovat všechny počítače</label><button id="room-identify">Čísla na obrazovkách</button><button id="floating-mode" class="table-view">Plovoucí maskot</button><button id="spawn-reset" class="table-view">Znovu čekat na návštěvníka</button><button id="room-experiment" class="table-view">Množení kuliček</button><p id="room-status" role="status">Připojuji obrazovky v učebně…</p></div>
         <div class="flick-controls">
           <button id="flick-connect">Připojit Flick</button>
           <p id="flick-status" role="status">Flick odpojen</p>
@@ -32,9 +33,14 @@
     <dialog id="projection-preview" aria-label="Promítaná plocha">
       <button id="projection-close" aria-label="Zavřít promítanou plochu" title="Zavřít (Esc)">×</button>
     </dialog>
+    <dialog id="guide-preview" aria-labelledby="guide-title">
+      <header><h2 id="guide-title">Průvodce · Jak rozhodl Tev1</h2><button id="guide-close" aria-label="Zavřít průvodce">×</button></header>
+      <iframe id="guide-frame" title="Průvodce studentskými pracemi a rozhodování Tev1"></iframe>
+    </dialog>
   </main>
-  <script src="classroom/timeline.js"></script>
+  <script src="classroom/timeline.js?v=spawn-r2"></script>
   <script src="classroom/sync.js"></script>
-  <script type="module" src="src/app.js?v=monitor-20261103"></script>
+  <script type="module" src="room/mascot.js?v=live-r2"></script>
+  <script type="module" src="src/app.js?v=demo-r1"></script>
 </body>
 </html>

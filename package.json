@@ -11,7 +11,8 @@
     "start": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
     "classroom": "node scripts/classroom.mjs",
-    "test": "node --test scripts/*.test.mjs classroom/*.test.mjs && python3 -m unittest discover -s scripts -p test_*.py"
+    "animations": "npm --prefix mascot-lab start",
+    "test": "node --test scripts/*.test.mjs classroom/*.test.mjs mascot-lab/tests/*.test.mjs pruvodce/*.test.mjs && python3 -m unittest discover -s scripts -p test_*.py"
   },
   "dependencies": {
     "three": "0.187.0",

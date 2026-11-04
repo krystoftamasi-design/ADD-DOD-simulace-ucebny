@@ -5,3 +5,5 @@ __pycache__/
 classroom/layout.json
 classroom/layout.json.tmp
 .runtime/
+
+classroom/local-session.json
