@@ -139,6 +139,9 @@ export async function openCatalog(root, categories, { allowEmpty = false } = {})
     return ending ? word.slice(0, -ending.length) : word;
   }
   function authorStem(word) {
+    if (/^pav(?:el|la|lu|lem|lovi|le)$/.test(word)) return 'pavl';
+    const adjective = word.match(/^(.{4,})(?:eho|emu|ymi|ych|ym|y)$/);
+    if (adjective) return adjective[1];
     if (/i(?:ho|mu|m)$/.test(word)) return word.replace(/(?:ho|mu|m)$/, '');
     if (/i$/.test(word)) return word;
     return /ov(?:a|e|ou)$/.test(word) ? word.replace(/(?:a|e|ou)$/, '') : topicStem(word);

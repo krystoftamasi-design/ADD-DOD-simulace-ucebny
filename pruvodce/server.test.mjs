@@ -52,6 +52,7 @@ test('textové hledání vrací odpovídající práce seřazené podle známky'
     const dir = join(temp, 'prace', 'showcase-digital-komplet');
     await mkdir(dir, { recursive: true });
     const projects = [{id:'a', title:'Design města', author:'Jana Nováková', grade:'A', year:'2025/2026'}, {id:'b', title:'Design krajiny', author:'Petr Horák', grade:'B', year:'2025/2026'}, {id:'c', title:'Ilustrace', author:'Eva Nováková', grade:'C', year:'2025/2026'}, {id:'d', title:'Jiná tvorba', author:'Kryštof Tamaši', grade:'D', year:'2025/2026'}];
+    projects.push({id:'e', title:'Další tvorba', author:'Pavel Mikulecký', grade:'D', year:'2025/2026'});
     const assets = Object.fromEntries(projects.map(p => [p.id, {image:{file:`obrazky/${p.id}.jpg`}, uses:[{project_id:p.id}]}]));
     await writeFile(join(dir, 'metadata.json'), JSON.stringify({projects, assets}));
     const catalog = await openCatalog(pathToFileURL(temp + '/'), []);
@@ -66,6 +67,10 @@ test('textové hledání vrací odpovídající práce seřazené podle známky'
     const tamasi = catalog.refineAuthorTerms('tamašiho', 'práce od Kryštofa Tamašiho');
     assert.deepEqual(tamasi, ['kryštofa', 'tamašiho']);
     assert.deepEqual(catalog.searchTopic('tamašiho', null, null, [], tamasi).projects.map(p => p.id), ['d']);
+    const mikulecky = catalog.refineAuthorTerms('mikuleckého', 'práce od Pavla Mikuleckého');
+    assert.deepEqual(mikulecky, ['pavla', 'mikuleckého']);
+    assert.deepEqual(catalog.searchTopic('mikuleckého', null, null, [], mikulecky).projects.map(p => p.id), ['e']);
+    assert.deepEqual(catalog.searchTopic('pavla', null, null, [], mikulecky).projects.map(p => p.id), ['e']);
     assert.deepEqual(catalog.searchTopic('krajiny').projects.map(p => p.id), ['b']);
     assert.equal(catalog.searchTopic('Nováková', ['2024/2025']).project, null);
   } finally { await rm(temp, {recursive:true, force:true}); }

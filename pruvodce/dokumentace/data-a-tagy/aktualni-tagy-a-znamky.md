@@ -247,4 +247,4 @@ Tyto návrhy zatím nejsou mezi používanými tagy aplikace.
 - Při současném požadavku „nejnovější“ nebo „nejstarší“ a „nejlepší“ se roky procházejí zvoleným směrem a zařazují se výhradně práce se známkou A+ nebo A; když nejsou, nižší známka se nepoužije.
 
 - Když vybraný hledaný výraz odpovídá jménu autora a další slovo požadavku se shoduje se stejným autorem, hledání použije obě části jména; při více možných kombinacích ponechá původní výraz.
-- Porovnání jmen ignoruje diakritiku a používá přibližné základy včetně tvarů příjmení na „-i“ a „-iho“; krátká jména pod čtyři znaky a nepravidelné tvary nemusí rozpoznat.
+- Porovnání jmen ignoruje diakritiku a používá přibližné základy včetně tvarů příjmení na „-i“ a „-iho“, „-ý“ a „-ého“ a jména Pavel/Pavla; krátká jména pod čtyři znaky a další nepravidelné tvary nemusí rozpoznat a podobná jména může zaměnit.
