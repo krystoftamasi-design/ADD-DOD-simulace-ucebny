@@ -5,7 +5,7 @@
     var targetOffset=0,offset=null,lastFrame=null,reconnectTimer,burstTimer,pingTimer;
     var now=function(){return root.performance&&root.performance.now?root.performance.now():Date.now();};
     if(options.role==='display'){try{id=localStorage.getItem('dod-room-client');}catch(ignore){}}
-    function notify(){if(options.onChange)options.onChange(api);}
+    function notify(){if(state&&state.projectionText)root.DodProjectionText=state.projectionText;if(options.onChange)options.onChange(api);}
     function send(message){if(ws&&ws.readyState===1)ws.send(JSON.stringify(message));}
     function ping(){var key=++sequence;pending[key]=now();send({type:'ping',id:key});if(key>50)delete pending[key-50];}
     function connect(){

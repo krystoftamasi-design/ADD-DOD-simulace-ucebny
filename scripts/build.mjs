@@ -21,7 +21,7 @@ await mkdir(new URL('room/', out), { recursive: true });
 for (const name of ['mascot.js', 'guide-renderer.js', 'live-edit.js', 'timeline.js']) {
   await copyFile(new URL('classroom/' + name, root), new URL('room/' + name, out));
 }
-for (const name of ['procedural-body.js', 'cursor-follow.js', 'mascot-canvas.js', 'spawn-model.js', 'spawn-renderer.js', 'bubble-flight.js', 'reset-model.js', 'work-presentation.js', 'mascot.json', 'native-body.json']) {
+for (const name of ['procedural-body.js', 'cursor-follow.js', 'mascot-canvas.js', 'spawn-model.js', 'spawn-renderer.js', 'bubble-flight.js', 'reset-model.js', 'work-presentation.js', 'projection-text.js', 'projection-text-editor.js', 'mascot.json', 'native-body.json']) {
   await copyFile(new URL('mascot/' + name, root), new URL('room/' + name, out));
 }
 await mkdir(new URL('room/fonts/',out),{recursive:true});

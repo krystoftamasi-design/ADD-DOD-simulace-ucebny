@@ -29,10 +29,13 @@ export class HoverReset {
 // Only stage boundaries are sent over the wire; clients animate from the shared
 // timestamps. Keep the old guide until the burst finishes so it has an origin.
 export function advanceResetGesture(hover,voice,spawn,sensor,now,{enabled=true,touching=false}={}){
+  // Idle, empty and error all return to free bubbles. Only displayed results
+  // have a mascot/work tour to freeze and burst; other states must allow recall.
+  enabled=enabled&&voice.state.phase==='presenting';
   // Lifting off the plate ends recording. The same lingering hand must not
   // become a new reset gesture while that recording is being processed.
   if(['listening','finishing','transcribing','thinking'].includes(voice.state.phase)){
-    hover.requireWithdrawal();enabled=false;
+    hover.requireWithdrawal();
   }
   const current=voice.state.resetGesture;
   if(current?.phase==='burst'){

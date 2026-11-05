@@ -4,6 +4,8 @@ Z kořene projektu spusť `npm run classroom`; společně spustí USB bridge na 
 
 Obrazovky používají http://dod.local:8000/ nebo IP vypsanou serverem. 3D řídicí schéma je na http://127.0.0.1:8765/. Canvas 2D funguje i na starších Macích. Sdílený timeline a hodiny přes WebSocket udržují přenos maskota mezi odpovídajícími hranami.
 
+Klávesa **B** v místní knihovně animací, 3D nebo projekci zapíná a vypíná editor textů projekce. Rámeček přetáhni myší, velikost změň za pravý dolní roh nebo posuvníkem. Našeptávání a „Poslouchám“ mají nezávislé nastavení. Po dokončení tažení se uloží do lokálního `classroom/projection-text.json` a přes společný stav se projeví na připojených stránkách. Editor během psaní do textového pole klávesu B nepřebírá. Nastavení platí i po restartu; „Výchozí umístění“ obnoví menší výchozí našeptávání.
+
 Pod mikrofonem jsou mini tlačítka pro ruční ukázky: bublinky, spawn, poslech bez nahrávání, přepis, přemýšlení, nepochopení, chyba, jedna práce, kategorie, náhodné práce a plovoucí maskot. Ukázky sdílejí stav s připojenými displeji; 3D při nich dočasně ukáže i nepřipojené monitory. Práce se losují ze skutečného katalogu bez volání Tev1, skryté obrázky se nepoužijí. Tlačítko ↻ Flick vrátí ovládání destičce. Stav ukázky přetrvá do další volby, zatímco odhalení prací používá běžné čekání na načtení obrázků a společný čas.
 
 Přiřazení monitorů je v lokálním `layout.json` (ignorovaném Gitem). Režim čísel a množení podle Flicku se ovládá v panelu 3D schématu. Příkazy POST /api/control smí posílat jen tento počítač. `{"action":"reload"}` obnoví připojené stránky. Přiblížení prstu řídí 0–192 kuliček, po ztrátě polohy efekt během 350 ms ustoupí.

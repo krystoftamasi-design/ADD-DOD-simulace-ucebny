@@ -26,7 +26,7 @@ ANIMATION_ASSETS = {
        ("mascot.js", "guide-renderer.js", "live-edit.js", "timeline.js")},
     **{f"/room/{name}": SOURCE_ROOT / "mascot" / name for name in
        ("mascot-canvas.js", "procedural-body.js", "cursor-follow.js", "spawn-model.js",
-        "spawn-renderer.js", "bubble-flight.js", "reset-model.js", "work-presentation.js", "mascot.json", "native-body.json")},
+        "spawn-renderer.js", "bubble-flight.js", "reset-model.js", "work-presentation.js", "projection-text.js", "projection-text-editor.js", "mascot.json", "native-body.json")},
     **{f"/room/fonts/PPNeueMachina-Plain{weight}.otf": SOURCE_ROOT / "pruvodce" / "fonts" / f"PPNeueMachina-Plain{weight}.otf"
        for weight in ("Regular", "Ultrabold")},
 }

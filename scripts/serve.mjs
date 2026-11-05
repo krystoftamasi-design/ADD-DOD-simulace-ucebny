@@ -8,7 +8,7 @@ const port = Number(process.env.DOD_SIM_PORT || 5173);
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.otf':'font/otf' };
 const roomAssets = new Map([
   ...['mascot.js', 'guide-renderer.js', 'live-edit.js', 'timeline.js'].map(name => ['room/' + name, 'classroom/' + name]),
-  ...['procedural-body.js', 'cursor-follow.js', 'mascot-canvas.js', 'spawn-model.js', 'spawn-renderer.js', 'bubble-flight.js', 'reset-model.js', 'work-presentation.js', 'mascot.json', 'native-body.json'].map(name => ['room/' + name, 'mascot/' + name]),
+  ...['procedural-body.js', 'cursor-follow.js', 'mascot-canvas.js', 'spawn-model.js', 'spawn-renderer.js', 'bubble-flight.js', 'reset-model.js', 'work-presentation.js', 'projection-text.js', 'projection-text-editor.js', 'mascot.json', 'native-body.json'].map(name => ['room/' + name, 'mascot/' + name]),
   ...['Regular','Ultrabold'].map(weight=>['room/fonts/PPNeueMachina-Plain'+weight+'.otf','pruvodce/fonts/PPNeueMachina-Plain'+weight+'.otf']),
 ]);
 http.createServer(async (req, res) => {

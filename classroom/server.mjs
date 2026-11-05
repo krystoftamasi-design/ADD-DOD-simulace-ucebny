@@ -13,6 +13,7 @@ import { SpawnController } from './spawn-state.mjs';
 import { HoverReset,advanceResetGesture } from './hover-reset.mjs';
 import { demoScenes,demoSpawn } from './demo-scenes.mjs';
 import {animationVersion,sendAsset,sendImage} from './http-assets.mjs';
+import {normalizeProjectionText} from '../mascot/projection-text.js';
 
 const addresses = Object.values(networkInterfaces()).flat().filter(item => item.family === 'IPv4' && !item.internal).map(item => item.address);
 const address = process.env.DOD_ADDRESS || addresses[0] || '127.0.0.1';
@@ -30,7 +31,7 @@ const assets = new Map([
   ['/room/mascot.js', ['mascot.js', 'text/javascript']],
   ['/room/procedural-body.js', ['../mascot/procedural-body.js', 'text/javascript']],
   ['/room/cursor-follow.js', ['../mascot/cursor-follow.js', 'text/javascript']],
-  ...['mascot-canvas.js','spawn-model.js','spawn-renderer.js','bubble-flight.js','reset-model.js','work-presentation.js'].map(file => ['/room/'+file, ['../mascot/'+file, 'text/javascript']]),
+  ...['mascot-canvas.js','spawn-model.js','spawn-renderer.js','bubble-flight.js','reset-model.js','work-presentation.js','projection-text.js','projection-text-editor.js'].map(file => ['/room/'+file, ['../mascot/'+file, 'text/javascript']]),
   ...['Regular','Ultrabold'].map(weight=>['/room/fonts/PPNeueMachina-Plain'+weight+'.otf',['../pruvodce/fonts/PPNeueMachina-Plain'+weight+'.otf','font/otf']]),
   ['/room/native-body.json', ['../mascot/native-body.json', 'application/json']],
   ['/room/mascot.json', ['../mascot/mascot.json', 'application/json']],
@@ -41,6 +42,10 @@ try { registry = JSON.parse(await readFile(layoutFile, 'utf8')); } catch (error)
 const peers = new Map();
 let state = {mode:process.env.DOD_ANIMATE==='1'?'animation':'identify', playing:process.env.DOD_ANIMATE==='1', elapsed:0, startAt:performance.now()+500, stepMs:2500, route:'all', order:[], revision:0,experiment:process.env.DOD_PROXIMITY==='1',proximity:{from:0,to:0,at:0,duration:120},sensorConnected:false};
 const spawnController=new SpawnController(performance.now());
+const projectionTextFile=new URL('./projection-text.json',import.meta.url);
+let projectionTextQueue=Promise.resolve();
+state.projectionText=normalizeProjectionText();
+try{state.projectionText=normalizeProjectionText(JSON.parse(await readFile(projectionTextFile,'utf8')));}catch(error){if(error.code!=='ENOENT')console.warn('Nastavení textů:',error.message);}
 const hoverReset=new HoverReset();
 state.spawn=spawnController.state;
 let config={};try{config=JSON.parse(await readFile(new URL('./local-session.json',import.meta.url),'utf8'));}catch{}
@@ -128,7 +133,9 @@ function applyControl(command) {
 function allowed(req) {
   if(!hostnames.has(req.headers.host))return false;
   const origin=req.headers.origin;
-  return !origin||origin===`http://${req.headers.host}`||/^http:\/\/(127\.0\.0\.1|localhost):(8765|5173|18187)$/.test(origin);
+  return !origin||origin===`http://${req.headers.host}`||/^http:\/\/(127\.0\.0\.1|localhost):(8765|5173|18187)$/.test(origin)||
+    /^http:\/\/(127\.0\.0\.1|localhost):8878$/.test(origin)&&
+      (req.url.split('?')[0]==='/api/projection-text'||/^\/room\/ws\?role=observer(?:&|$)/.test(req.url));
 }
 const server=http.createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
@@ -139,6 +146,23 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname==='/api/animation-version'&&req.method==='GET'){
     try{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({version:await animationVersion(animationFiles)}));}
     catch{res.writeHead(503).end();}return;
+  }
+  if(url.pathname==='/api/projection-text'){
+    res.setHeader('Content-Type','application/json');
+    if(req.method==='GET'){res.end(JSON.stringify({settings:state.projectionText}));return;}
+    if(req.method!=='POST'){res.writeHead(405).end();return;}
+    if(!isLocal(req.socket)){res.writeHead(403).end();return;}
+    try{
+      let body='';for await(const chunk of req){body+=chunk;if(body.length>2048){res.writeHead(413).end();return;}}
+      const input=JSON.parse(body);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Neplatné nastavení textů.');
+      const settings=normalizeProjectionText(input);
+      projectionTextQueue=projectionTextQueue.catch(()=>{}).then(async()=>{
+        const temporary=new URL('./projection-text.json.tmp',import.meta.url);
+        await writeFile(temporary,JSON.stringify(settings,null,2)+'\n');await rename(temporary,projectionTextFile);
+        state.projectionText=settings;broadcast();
+      });
+      await projectionTextQueue;res.end(JSON.stringify({settings}));
+    }catch(error){res.writeHead(400).end(JSON.stringify({error:error.message}));}return;
   }
   if(url.pathname.startsWith('/api/voice/')){
     if(!isLocal(req.socket)){res.writeHead(403).end();return;}
@@ -262,7 +286,7 @@ function updateSpawn(sensor){
 }
 function updateReset(sensor,now){
   const event=advanceResetGesture(hoverReset,voice,spawnController,sensor,now,{
-    enabled:!['idle','listening','finishing'].includes(voice.state.phase),touching:spawnController.contact.active});
+    touching:spawnController.contact.active});
   if(event==='burst'){
     state.spawn=spawnController.state;state.mode='animation';
     console.log('Hover reset: burst after 1.5 seconds');broadcast();

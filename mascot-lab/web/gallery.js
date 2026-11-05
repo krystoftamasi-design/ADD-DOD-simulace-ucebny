@@ -1,4 +1,8 @@
 import {watchModules} from './live-edit.js?v=live-r1';
+import {setupProjectionTextEditor} from './projection-text-editor.js?v=text-editor-r2';
+import './sync.js?v=text-editor-r1';
+setupProjectionTextEditor();
+if(['localhost','127.0.0.1'].includes(location.hostname))new window.DodRoom({role:'observer',url:'ws://127.0.0.1:8000/room/ws'});
 let animations=[],categories=[],sampleScene,followSpawn;
 
 const $ = id => document.getElementById(id);

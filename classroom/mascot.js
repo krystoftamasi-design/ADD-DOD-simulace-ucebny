@@ -1,4 +1,6 @@
 import {watchModules} from './live-edit.js?v=network-r1';
+import {setupProjectionTextEditor} from './projection-text-editor.js?v=text-editor-r2';
+setupProjectionTextEditor();
 
 const entries=Object.fromEntries(['mascot-canvas','guide-renderer','spawn-renderer'].map(name=>[name,new URL('./'+name+'.js',import.meta.url).href]));
 Promise.all(['/room/mascot.json','/room/native-body.json'].map(async url=>{

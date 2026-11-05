@@ -8,3 +8,5 @@ classroom/layout.json.tmp
 *.log
 
 classroom/local-session.json
+classroom/projection-text.json
+classroom/projection-text.json.tmp

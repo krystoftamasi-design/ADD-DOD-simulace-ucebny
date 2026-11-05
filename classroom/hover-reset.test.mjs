@@ -3,8 +3,26 @@ import assert from 'node:assert/strict';
 import {HoverReset,advanceResetGesture,RESET_HOLD_MS,RESET_BURST_MS} from './hover-reset.mjs';
 import {SpawnController} from './spawn-state.mjs';
 import {VoiceSession} from './voice-session.mjs';
+import {gatherAt} from '../mascot/spawn-model.js';
 const sensor=(z,touching=false,id=0)=>({connected:true,position:{x:50,y:50,z},touching,touchId:id,touchAt:10000});
 function hold(gesture,input,start,end,options){let count=0;for(let now=start;now<=end;now+=100)if(gesture.update(input,now,options))count++;return count;}
+test('idle, failed and empty requests gather on hover and accept a touch without a reset burst',()=>{
+ for(const phase of ['idle','empty','error']){
+  let now=0;
+  const voice=new VoiceSession({clock:()=>now,onChange:()=>{}}),hover=new HoverReset(),spawn=new SpawnController(0);
+  voice.set({phase});
+  for(now=0;now<=2500;now+=100){
+   spawn.update(sensor(40),now,10000,hover.latched);
+   assert.equal(advanceResetGesture(hover,voice,spawn,sensor(40),now,{enabled:true}),null,phase);
+   assert.equal(voice.state.resetGesture,undefined,phase);
+  }
+  assert.equal(spawn.state.phase,'gathering');assert(gatherAt(spawn.state,now)>.5);
+  assert.equal(hover.latched,false);
+  spawn.update(sensor(5,true,1),now,10001,hover.latched);
+  assert.equal(spawn.state.phase,'listening');assert(voice.begin({holdToTalk:true}));
+  assert.equal(voice.state.phase,'listening');assert.equal(voice.state.resetGesture,undefined);
+ }
+});
 test('hover at 66% or lower resets once after 1.5 seconds, never during a quick pass',()=>{
  const g=new HoverReset();
  assert.equal(hold(g,sensor(66),0,1400),0);assert.equal(g.update(sensor(66),1500),true);
