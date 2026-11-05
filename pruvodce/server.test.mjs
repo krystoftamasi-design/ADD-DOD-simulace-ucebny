@@ -20,7 +20,7 @@ test('samostatný průvodce funguje bez katalogu i s místně připojeným katal
     if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'tev1:4b' }] }));
     let body = ''; for await (const chunk of req) body += chunk;
     const input = JSON.parse(body);
-    const answers = Object.fromEntries(Object.keys(input.questions).map(key => [key, key === 'quality' ? {choice:'none'} : {choice:key === 'tag_web' ? 'ano' : 'ne', probabilities:{ano:key === 'tag_web' ? 0.9 : 0.01}}]));
+    const answers = Object.fromEntries(Object.keys(input.questions).map(key => [key, ['quality', 'yearOrder'].includes(key) ? {choice:'none'} : {choice:key === 'tag_web' ? 'ano' : 'ne', probabilities:{ano:key === 'tag_web' ? 0.9 : 0.01}}]));
     res.end(JSON.stringify({ answers }));
   });
   mock.listen(0, '127.0.0.1'); await once(mock, 'listening');
@@ -114,7 +114,7 @@ test('nejstarší a nejnovější upřednostní rok před známkou', async () =>
   const mock = http.createServer(async (req, res) => {
     let body = ''; for await (const chunk of req) body += chunk;
     const input = JSON.parse(body);
-    const answers = Object.fromEntries(Object.keys(input.questions).map(key => [key, key === 'quality' ? {choice: input.state.includes('nejlepší') ? 'best' : 'none'} : key === 'topic' ? {choice:'none'} : {choice:key === 'tag_web' ? 'ano' : 'ne', probabilities:{ano:key === 'tag_web' ? 0.9 : 0.01}}]));
+    const answers = Object.fromEntries(Object.keys(input.questions).map(key => [key, key === 'quality' ? {choice: input.state.includes('nejlepší') ? 'best' : 'none'} : key === 'yearOrder' ? {choice: /nechci|otevřených/.test(input.state) ? 'none' : input.state.includes('Nejstarší') ? 'oldest' : 'newest'} : key === 'topic' ? {choice:'none'} : {choice:key === 'tag_web' && !input.state.includes('otevřených') ? 'ano' : 'ne', probabilities:{ano:key === 'tag_web' && !input.state.includes('otevřených') ? 0.9 : 0.01}}]));
     res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({answers}));
   });
   mock.listen(0,'127.0.0.1'); await once(mock,'listening');
@@ -130,5 +130,38 @@ test('nejstarší a nejnovější upřednostní rok před známkou', async () =>
       const response=await fetch(`http://127.0.0.1:${port}/api/classify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,model:'tev1:4b'})});
       const result=await response.json(); assert.equal(response.status,200); assert.equal(result.project?.id,id); assert.equal(result.yearOrder,order); assert.deepEqual(result.projects.map(p => p.id), text.includes('nejlepší') ? ['old'] : order === 'oldest' ? ['old','new'] : ['new','old']);
     }
+    for (const text of ['Ukaž web, nechci nové práce', 'Kdy bude nový den otevřených dveří?']) {
+      const response = await fetch(`http://127.0.0.1:${port}/api/classify`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,model:'tev1:4b'})});
+      const result = await response.json();
+      assert.equal(response.status, 200); assert.equal(result.yearOrder, null);
+      if (text.includes('otevřených')) { assert.deepEqual(result.projects, []); assert.ok(result.clarification); }
+    }
+  } finally { child.kill(); await once(child,'exit'); mock.closeAllConnections(); await new Promise(resolve=>mock.close(resolve)); await rm(temp,{recursive:true,force:true}); }
+});
+
+
+test('dotaz s kondomem najde i ochranu lesů přes asociaci a poslední známku', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'dod-association-'));
+  const mock = http.createServer(async (req, res) => {
+    let body = ''; for await (const chunk of req) body += chunk;
+    const input = JSON.parse(body);
+    const answers = Object.fromEntries(Object.keys(input.questions).map(key => [key,
+      key === 'topic' ? {choice:'t0'} : ['quality','yearOrder'].includes(key) ? {choice:'none'} : {choice:'ne', probabilities:{ano:0.01}}]));
+    res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({answers}));
+  });
+  mock.listen(0,'127.0.0.1'); await once(mock,'listening');
+  const dir = join(temp,'prace','showcase-digital-komplet'); await mkdir(dir,{recursive:true});
+  const projects = [{id:'forest', title:'Land art – Ochrana lesov', grade:'F', tags:['experiment']}, {id:'other', title:'Jiná práce', grade:'A', tags:[]}];
+  const assets = Object.fromEntries(projects.map(p => [p.id,{image:{file:`obrazky/${p.id}.jpg`},uses:[{project_id:p.id}]}]));
+  await writeFile(join(dir,'metadata.json'), JSON.stringify({projects,assets}));
+  await writeFile(join(temp,'asociace-praci.json'), JSON.stringify({forest:['kondom','les','ochrana']}));
+  const port = await freePort();
+  const child = spawn(process.execPath,['server.mjs'],{cwd:new URL('./',import.meta.url),env:{...process.env,PORT:String(port),DOD_DATA_DIR:temp,OLLAMA_URL:`http://127.0.0.1:${mock.address().port}`},stdio:['ignore','pipe','pipe']});
+  try {
+    await Promise.race([once(child.stdout,'data'),once(child,'exit').then(()=>{throw new Error('Server se nespustil.');})]);
+    const response = await fetch(`http://127.0.0.1:${port}/api/classify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'Ukaž mi práce s kondomem',model:'tev1:4b'})});
+    const result = await response.json();
+    assert.equal(response.status,200); assert.equal(result.searchTerm,'kondomem');
+    assert.deepEqual(result.projects.map(p=>p.id),['forest']); assert.ok(result.project.images.length);
   } finally { child.kill(); await once(child,'exit'); mock.closeAllConnections(); await new Promise(resolve=>mock.close(resolve)); await rm(temp,{recursive:true,force:true}); }
 });
