@@ -1,9 +1,9 @@
 import {MIN_RECORDING_MS} from './listening.js';
 
 const endpoint='http://127.0.0.1:8000';
-export function recordingError({size,durationMs,heard}){
+export function recordingError({size,durationMs,heard,levelsReliable=true}){
   if(!size||durationMs<MIN_RECORDING_MS)return 'Záznam skončil příliš brzy. Přidrž prst alespoň 2 sekundy.';
-  if(!heard)return 'Nezachytil jsem řeč. Přilož prst a zkus to znovu.';
+  if(!heard&&levelsReliable)return 'Nezachytil jsem řeč. Přilož prst a zkus to znovu.';
   return null;
 }
 export function setupVoice({room}){
@@ -12,7 +12,7 @@ export function setupVoice({room}){
   dock.innerHTML='<div class="voice-top"><button id="voice-enable">Povolit mikrofon</button><button id="voice-start" disabled>Mluvit teď</button><span id="voice-status" role="status">Připravuji hlasové příkazy…</span></div><p id="voice-transcript"></p><details><summary>Zadat požadavek textem</summary><form id="voice-form"><input id="voice-text" aria-label="Požadavek na studentskou práci" placeholder="Např. ukaž nejlepší animace z roku 2025" maxlength="2000" required><button>Vybrat práci</button></form></details><div class="voice-demos"><div class="voice-demo-heading"><span>Vyzkoušet animaci</span><span id="voice-demo-mode">Flick · automaticky</span></div><div id="voice-demo-buttons" role="group" aria-label="Ukázky stavů maskota"></div><p id="voice-demo-note" hidden></p></div>';
   document.querySelector('main').append(dock);
   const $=id=>dock.querySelector('#'+id),owner=crypto.randomUUID();
-  let stream,context,analyser,recorder,recordSession=null,lastAttempted=null,timer,lastSpeech=0,heard=false,started=0,stoppedAt=null,busy=false;
+  let stream,context,analyser,recorder,recordSession=null,lastAttempted=null,timer,lastSpeech=0,heard=false,levelsReliable=true,started=0,stoppedAt=null,busy=false;
   let ready=false,pendingPermission=false,demoBusy=false;
   const cancelled=new Set();
   async function request(path,body,raw=false){
@@ -22,11 +22,12 @@ export function setupVoice({room}){
   const show=message=>{$('voice-status').textContent=message;};
   function stopRecording(){if(recorder?.state==='recording'){stoppedAt=performance.now();recorder.stop();}clearInterval(timer);}
   async function begin(session){
-    if(document.hidden||room.state()?.guide?.demo||!stream||busy||recorder?.state==='recording'||session===lastAttempted)return;
+    if(room.state()?.guide?.demo||!stream||busy||recorder?.state==='recording'||session===lastAttempted)return;
     lastAttempted=session;
     try{
-      await context.resume();
-      if(context.state!=='running')throw new Error('Mikrofon není aktivní. Zapni ho znovu v tomto okně.');
+      // Recording uses the microphone stream directly. Autoplay restrictions on
+      // the optional level analyser must not block Flick recording in background.
+      context.resume().catch(()=>{});
       await request('/api/voice/claim',{session,owner});
       if(room.state()?.guide?.session!==session||room.state()?.guide?.phase!=='listening')return;
       const chunks=[];
@@ -39,7 +40,7 @@ export function setupVoice({room}){
         busy=true;
         try{
           const blob=new Blob(chunks,{type:recorder.mimeType});
-          const error=recordingError({size:blob.size,durationMs:(stoppedAt??performance.now())-started,heard});
+          const error=recordingError({size:blob.size,durationMs:(stoppedAt??performance.now())-started,heard,levelsReliable});
           if(error)throw new Error(error);
           show('Přepisuji řeč…');
           await request(`/api/voice/audio?session=${session}&owner=${encodeURIComponent(owner)}`,blob,true);
@@ -47,13 +48,16 @@ export function setupVoice({room}){
         finally{busy=false;}
       };
       recorder.onerror=()=>{show('Nahrávání se nepodařilo.');stopRecording();};
-      heard=false;started=performance.now();stoppedAt=null;lastSpeech=started;recorder.start();show('Poslouchám — řekni, jakou práci chceš vidět.');
+      heard=false;levelsReliable=context.state==='running';started=performance.now();stoppedAt=null;lastSpeech=started;recorder.start();show('Poslouchám — řekni, jakou práci chceš vidět.');
       const samples=new Float32Array(analyser.fftSize);
       timer=setInterval(()=>{
+        // A suspended analyser reports silence even when MediaRecorder has audio.
+        // Let the local recognizer validate that recording instead.
+        if(context.state!=='running')levelsReliable=false;
         analyser.getFloatTimeDomainData(samples);
         const rms=Math.sqrt(samples.reduce((sum,n)=>sum+n*n,0)/samples.length),now=performance.now();
         if(rms>.008){heard=true;lastSpeech=now;}
-        if(!room.state()?.guide?.holdToTalk&&heard&&now-lastSpeech>1600&&now-started>=MIN_RECORDING_MS||now-started>20000)stopRecording();
+        if(context.state==='running'&&!room.state()?.guide?.holdToTalk&&heard&&now-lastSpeech>1600&&now-started>=MIN_RECORDING_MS||now-started>20000)stopRecording();
       },100);
     }catch(error){show(error.message);}
   }
@@ -90,12 +94,16 @@ export function setupVoice({room}){
     try{
       if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw new Error('Tento prohlížeč neumí nahrávat mikrofon. Otevři místní náhled v Chrome nebo Safari.');
       stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
-      context=new AudioContext();await context.resume();analyser=context.createAnalyser();analyser.fftSize=2048;
+      context=new AudioContext();context.resume().catch(()=>{});analyser=context.createAnalyser();analyser.fftSize=2048;
       context.createMediaStreamSource(stream).connect(analyser);
       ready=true;pendingPermission=false;$('voice-start').disabled=false;$('voice-enable').textContent='Vypnout mikrofon';update(room.state());
     }catch(error){stream?.getTracks().forEach(track=>track.stop());show(error.name==='NotAllowedError'?'Povol mikrofon v prohlížeči a zkus to znovu.':error.message);}finally{pendingPermission=false;$('voice-enable').disabled=false;}
   };
-  $('voice-start').onclick=()=>request('/api/voice/start',{}).catch(error=>show(error.message));
+  // Reuse a permission the user already granted; never prompt automatically.
+  navigator.permissions?.query({name:'microphone'}).then(permission=>{
+    if(permission.state==='granted'&&!ready&&!pendingPermission) $('voice-enable').click();
+  }).catch(()=>{});
+  $('voice-start').onclick=()=>{context?.resume().catch(()=>{});request('/api/voice/start',{}).catch(error=>show(error.message));};
   $('voice-form').onsubmit=async event=>{
     event.preventDefault();if(busy||!$('voice-text').value.trim())return;
     busy=true;if(recordSession!==null)cancelled.add(recordSession);stopRecording();

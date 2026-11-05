@@ -1,4 +1,4 @@
-import {setupVoice} from './voice.js?v=demo-r1';
+import {setupVoice} from './voice.js?v=background-r1';
 import {setupBubbleAudio} from './bubble-audio.js';
 import * as THREE from 'three';
 import { addTableProjector } from './projector.js?v=contact-r4';
@@ -231,8 +231,13 @@ function renderScreens(now){
 }
 function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
 new ResizeObserver(resize).observe(host);resize();
-function animate(now){requestAnimationFrame(animate);renderScreens(now);tableProjector.update(now);if(!projectionDialog.open){controls.update();renderer.render(scene,camera)}}
+function animate(now){requestAnimationFrame(animate);renderScreens(now);tableProjector.update(now);if(!projectionDialog.open && !renderer.domElement.hidden){controls.update();renderer.render(scene,camera)}}
 document.querySelector('#loading').remove();requestAnimationFrame(animate);
+document.querySelector('#model-toggle').onclick=event=>{
+ const hidden=renderer.domElement.hidden=!renderer.domElement.hidden;
+ event.currentTarget.textContent=hidden?'Zobrazit 3D model':'Skrýt 3D model';
+ event.currentTarget.setAttribute('aria-pressed',String(hidden));
+};
 document.querySelector('#play').onclick=()=>{
  if(room.connected){room.command(room.state().playing?'pause':'play',{});return;}
  const now=performance.now();standaloneState.elapsed=elapsedAt(now);standaloneState.startAt=now-standaloneState.elapsed;standaloneState.playing=!standaloneState.playing;refreshControls(room);

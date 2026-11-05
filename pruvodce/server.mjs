@@ -22,6 +22,10 @@ const assets = { '/': ['index.html', 'text/html'], '/index.html': ['index.html',
 let busy = false;
 function json(res, code, body) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); }
 async function modelRequest(path, options = {}) {
+  if(options.body){
+    const input=JSON.parse(options.body);
+    if(input.model)options={...options,body:JSON.stringify({...input,keep_alive:-1})};
+  }
   let response;
   try { response = await fetch(`${ollama}${path}`, { ...options, signal: AbortSignal.timeout(path === '/api/tags' ? 5000 : 120000) }); }
   catch { throw new Error('Ollama není dostupná nebo požadavek překročil časový limit. Spusť Ollama a zkus to znovu.'); }

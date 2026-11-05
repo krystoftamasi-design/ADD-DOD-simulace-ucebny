@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Učebna · simulátor maskota</title>
-  <link rel="stylesheet" href="src/style.css?v=demo-r1">
+  <link rel="stylesheet" href="src/style.css?v=model-toggle-r1">
   <script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
 </head>
 <body>
@@ -19,6 +19,7 @@
         <input id="speed" type="range" min="0.5" max="2" step="0.25" value="1">
         <div class="buttons"><button id="play">Pozastavit</button><button id="reset">Výchozí pohled</button></div>
         <div class="view-controls" aria-label="Pohled"><button id="eye" class="active">Od návštěvníka</button><button id="top">Nadhled</button></div>
+        <button id="model-toggle" class="table-view" aria-pressed="false">Skrýt 3D model</button>
         <button id="table-view" class="table-view">Projekční stůl</button>
         <button id="projection-open" class="table-view">Zvětšit projekci</button>
         <button id="guide-open" class="table-view" hidden>Jak rozhodl Tev1</button>
@@ -41,6 +42,6 @@
   <script src="classroom/timeline.js?v=spawn-r2"></script>
   <script src="classroom/sync.js"></script>
   <script type="module" src="room/mascot.js?v=network-r1"></script>
-  <script type="module" src="src/app.js?v=bubble-audio-r1"></script>
+  <script type="module" src="src/app.js?v=windows-r1"></script>
 </body>
 </html>

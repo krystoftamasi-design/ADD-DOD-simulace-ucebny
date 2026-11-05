@@ -7,7 +7,7 @@ import { basename } from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 import { proximityFromSensor } from './proximity.mjs';
 import { startGuideService } from './guide-service.mjs';
-import { transcribe,speechAvailable } from './speech.mjs';
+import { transcribe,speechAvailable,warmSpeech,stopSpeechWorker } from './speech.mjs';
 import { VoiceSession } from './voice-session.mjs';
 import { SpawnController } from './spawn-state.mjs';
 import { HoverReset,advanceResetGesture } from './hover-reset.mjs';
@@ -44,9 +44,13 @@ const spawnController=new SpawnController(performance.now());
 const hoverReset=new HoverReset();
 state.spawn=spawnController.state;
 let config={};try{config=JSON.parse(await readFile(new URL('./local-session.json',import.meta.url),'utf8'));}catch{}
+for(const [key,value] of Object.entries({OLLAMA_URL:config.ollamaUrl,DOD_FFMPEG:config.ffmpeg,DOD_SPEECH_PYTHON:config.speechPython,DOD_SPEECH_DEVICE:config.speechDevice})){
+  if(value&&!process.env[key])process.env[key]=value;
+}
 const dataDir=process.env.DOD_DATA_DIR||config.dataDir;
 const guide=dataDir?await startGuideService(dataDir).catch(error=>{console.error(error.message);return null;}):null;
 const whisperModel=process.env.DOD_WHISPER_MODEL||config.whisperModel;
+warmSpeech(whisperModel).then(()=>console.log('Whisper připraven v paměti.')).catch(error=>console.error('Whisper warmup:',error.message));
 const voice=new VoiceSession({classify:text=>{if(!guide)throw new Error('Katalog není připojený.');return guide.classify(text);},transcribe:audio=>transcribe(audio,whisperModel),stations:()=>[...new Set(screens().filter(s=>s.station&&s.visible&&s.ready).map(s=>s.station))].sort((a,b)=>a-b),
   onChange:current=>{console.log('Hlas:',current.session,current.phase);state.guide=current;for(const ws of peers.keys())send(ws,{type:'guide',guide:current});}});
 state.guide=voice.state;
@@ -297,5 +301,5 @@ const heartbeat=setInterval(()=>{
   roster();
 },5000);heartbeat.unref();
 server.listen(port,'0.0.0.0',()=>console.log(`Classroom displays: http://dod.local:${port}/ (http://${address}:${port}/)`));
-function shutdown(){guide?.stop();clearInterval(heartbeat);clearInterval(proximityTimer);for(const ws of peers.keys())ws.terminate();server.close(()=>process.exit(0));}
+function shutdown(){stopSpeechWorker();guide?.stop();clearInterval(heartbeat);clearInterval(proximityTimer);for(const ws of peers.keys())ws.terminate();server.close(()=>process.exit(0));}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

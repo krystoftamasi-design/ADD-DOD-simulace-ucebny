@@ -27,7 +27,10 @@ async function running(url) {
 }
 // Reusing a running bridge avoids opening the same USB device twice.
 if (!await running('http://127.0.0.1:8765/state')) {
-  start(process.platform === 'darwin' ? '/usr/bin/python3' : 'python3', ['scripts/flick_bridge.py']);
+  const python = process.env.DOD_PYTHON || (process.platform === 'darwin' ? '/usr/bin/python3' : process.platform === 'win32' ? 'python' : 'python3');
+  const args = ['scripts/flick_bridge.py'];
+  if (process.env.DOD_FLICK_DEVICE) args.push('--device', process.env.DOD_FLICK_DEVICE);
+  start(python, args);
 }
 if (!await running('http://127.0.0.1:8000/api/status')) {
   start(process.execPath, ['classroom/server.mjs'], { ...process.env, DOD_ANIMATE: '1', DOD_PROXIMITY: '1' });
@@ -38,7 +41,7 @@ if (address && process.platform === 'darwin') {
   start('/usr/bin/dns-sd', ['-P', 'DOD', '_http._tcp', 'local', '8000', 'dod.local', address]);
 }
 console.log('Simulátor: http://127.0.0.1:8765/');
-console.log('Obrazovky: http://dod.local:8000/' + (address ? ` nebo http://${address}:8000/` : ''));
+console.log('Obrazovky: ' + (address ? `http://${address}:8000/` : 'http://127.0.0.1:8000/') + (process.platform === 'darwin' ? ' nebo http://dod.local:8000/' : ''));
 console.log('Nech toto okno otevřené. Servery spuštěné tímto příkazem ukončíš Ctrl+C.');
 process.on('SIGINT', () => stop());
 process.on('SIGTERM', () => stop());

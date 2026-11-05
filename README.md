@@ -6,6 +6,10 @@
 
 ## Spuštění celé učebny
 
+Na Windows s nainstalovaným Node.js 22+ a Pythonem 3 spusť dvojklikem **Spustit-ucebnu.cmd**. Spouštěč sestaví aktuální simulátor a spustí USB most i obrazovky. Pico se hledá automaticky mezi USB COM porty; Bluetooth porty se ignorují. Simulátor otevři na http://127.0.0.1:8765/ a okno spouštěče nech otevřené. Chyby přístupu k portu se vypisují v tomto okně i ve stavu Flicku. Pokud je port obsazený, zavři Thonny nebo jiný sériový monitor. Po odpojení a opětovném připojení USB se most připojí znovu automaticky.
+
+Pro ruční výběr portu lze před spuštěním `npm run classroom` nastavit `DOD_FLICK_DEVICE=COM7` (případně jiný aktuální port). Samostatný most spustíš příkazem `python scripts/flick_bridge.py --device COM7`. Diagnostika na http://127.0.0.1:8765/diagnostics obsahuje nalezené porty, poslední chybu a poslední přijatá USB data.
+
 Na řídicím Macu je potřeba Node.js 22+ a Python 3. Při prvním spuštění nainstaluj závislosti:
 
 ```sh
@@ -71,6 +75,12 @@ Samostatný průvodce včetně správy, slepého hodnocení a testeru rozhodová
 Na řídicím Macu otevři `http://127.0.0.1:8765/` a jednou klikni **Povolit mikrofon**. Přilož prst na destičku Flicku a drž ho tam při mluvení. Dotyk spustí nahrávání a zvednutí prstu nebo ztráta kontaktu ho ukončí podle skutečného bitu dotyku z Pica, nezávisle na 3D souřadnicích. Zachycená řeč se potom přepíše přes Whisper a Tev1 vybere odpovídající práci. Při držení prstu nahrávání neukončuje samotné ticho; zůstává bezpečnostní limit 20 sekund. Průvodce vrátí nejvýše 10 různých prací seřazených podle známky. Každý připojený a přiřazený počítač dostane jednu jinou práci; při menším počtu počítačů se zobrazí odpovídající část výsledků. Stejná přiřazení ukazuje 3D model. Připojení, odpojení nebo změna pozice počítače rozložení aktualizuje. Přepínač **Simulovat všechny počítače** umožňuje náhled až na deseti virtuálních monitorech. Další dotyky během přepisu a výběru aktuální požadavek nepřerušují. Bez Flicku použij **Mluvit teď**, které skončí po tichu, nebo **Zadat požadavek textem**. Server ukončí poslouchání i tehdy, když okno s mikrofonem přestane odpovídat.
 
 Zvuk zpracovává místní `whisper-cli` přes FFmpeg; dočasná nahrávka se po přepisu smaže. Nahrává pouze jedno povolené řídicí okno. Po obnovení stránky znovu zapni mikrofon. Zpracování řeči a filtrování běží na řídicím počítači, monitory dostávají výsledek přes stávající WebSocket.
+
+Model Whisper ve formátu GGUF stažený aplikací Handy lze použít přímo z její cache. Pro tento formát přepis používá `scripts/handy_transcribe.py` a Python balíček `transcribe-cpp` (ověřeno s verzí 0.4.1). V místním `classroom/local-session.json` nastav `whisperModel` na soubor `.gguf`, `speechPython` na Python prostředí s tímto balíčkem a `ffmpeg` na místní FFmpeg. Volitelné `ollamaUrl` určuje adresu serveru modelů. Proměnné prostředí `DOD_SPEECH_PYTHON`, `DOD_FFMPEG` a `OLLAMA_URL` mají přednost. Přepis probíhá lokálně a podporuje češtinu.
+
+GGUF Whisper se načte při startu učebny a zůstává v samostatném procesu mezi nahrávkami. Po pádu či časovém limitu se proces při dalším přepisu vytvoří znovu. Řídicí stránka nemusí být maximalizovaná ani v popředí; musí však zůstat otevřená s aktivním mikrofonem. Již udělené povolení mikrofonu se po obnovení stránky využije automaticky.
+
+Volba `speechDevice` v `classroom/local-session.json` (nebo `DOD_SPEECH_DEVICE`) může být `auto`, `igpu`, `cpu` či část názvu zařízení. Na počítači s 8GB NVIDIA a integrovanou grafikou lze zvolit `igpu`, aby Whisper neubíral paměť modelu Tev1. Požadavky průvodce používají `keep_alive: -1`, takže Ollama model po nečinnosti nevykládá.
 
 Je potřeba běžící Ollama s modelem `tev1:latest` nebo `tev1:4b`, FFmpeg, `whisper-cli` a vícejazyčný model **Whisper large-v3** ve formátu GGML (`ggml-large-v3.bin`). Zkopíruj `classroom/local-session.example.json` do `classroom/local-session.json` a nastav absolutní cesty. `dataDir` má stejnou strukturu jako `DOD_DATA_DIR` v dokumentaci průvodce. Místo souboru lze použít proměnné `DOD_DATA_DIR` a `DOD_WHISPER_MODEL`. Cesty k programům na jiném počítači nastav přes `DOD_FFMPEG` a `DOD_WHISPER`; výchozí jsou `/opt/homebrew/bin/ffmpeg` a `/opt/homebrew/bin/whisper-cli`. Lokální nastavení Git ignoruje, stejně jako přiřazení obrazovek.
 

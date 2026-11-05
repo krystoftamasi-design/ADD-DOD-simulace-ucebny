@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Read the existing Pico JSON stream and serve it to the classroom simulator."""
 import argparse
-import array
-import fcntl
 import glob
 import json
+import logging
 import os
 from pathlib import Path
-import select
 import signal
-import termios
 import threading
 import time
 from collections import deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
+
+if os.name != "nt":
+    import array
+    import fcntl
+    import select
+    import termios
 
 ORIGINS = {"https://ucebna-dod-simulator.noobest.chatgpt.site"}
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -58,6 +61,25 @@ class Sensor:
         self.updated = 0
         self.trace = deque(maxlen=256)
         self.events = deque(maxlen=32)
+        self.transport = {"ports": [], "port": None, "error": None, "receivedBytes": 0}
+        self.raw = deque(maxlen=8)
+
+    def serial_status(self, **values):
+        with self.lock:
+            changed = any(self.transport.get(key) != value for key, value in values.items())
+            self.transport.update(values)
+        if changed and values.get("error"):
+            logging.warning("Flick: %s", values["error"])
+
+    def serial_chunk(self, chunk, buffer):
+        text = chunk.decode("utf-8", "replace")
+        with self.lock:
+            self.transport["receivedBytes"] += len(chunk)
+            self.raw.append(text[-1024:])
+        items, buffer = messages(buffer + text)
+        for item in items:
+            self.accept(item)
+        return buffer
 
     def publish(self, **values):
         with self.lock:
@@ -70,6 +92,8 @@ class Sensor:
             state = dict(self.state)
             if self.updated and time.monotonic() - self.updated > 3:
                 state.update(connected=False, position=None, touching=False)
+            if not state["connected"] and self.transport["error"]:
+                state["error"] = self.transport["error"]
             return state
 
     def accept(self, message):
@@ -104,6 +128,8 @@ class Sensor:
         self.publish(**values)
 
     def run(self):
+        if os.name == "nt":
+            return self.run_windows()
         while not self.stop.is_set():
             paths = [self.port] if self.port else sorted(glob.glob("/dev/cu.usbmodem*"))
             if not paths:
@@ -151,6 +177,48 @@ class Sensor:
                         pass
                     os.close(fd)
 
+    def run_windows(self):
+        from windows_serial import SerialPort, usb_ports
+
+        while not self.stop.is_set():
+            paths = [self.port] if self.port else usb_ports()
+            self.serial_status(ports=paths)
+            if not paths:
+                self.publish(connected=False, position=None, touching=False)
+                self.serial_status(port=None, error=None)
+            for path in paths:
+                if self.stop.is_set():
+                    break
+                serial = None
+                try:
+                    serial = SerialPort(path)
+                    self.serial_status(port=path, error=None)
+                    buffer = ""
+                    last_bytes = time.monotonic()
+                    last_message = self.updated
+                    last_valid = last_bytes
+                    while not self.stop.is_set():
+                        chunk = serial.read()
+                        if not chunk:
+                            if time.monotonic() - last_bytes > 5:
+                                raise OSError("USB neposila data. Over firmware main.py na Picu.")
+                            continue
+                        last_bytes = time.monotonic()
+                        buffer = self.serial_chunk(chunk, buffer)
+                        if self.updated != last_message:
+                            last_message = self.updated
+                            last_valid = last_bytes
+                            self.serial_status(error=None)
+                        elif last_bytes - last_valid > 5:
+                            self.serial_status(error=f"{path}: Pico neposila zpravy Flicku. Over main.py a flick_protocol.py.")
+                except OSError as error:
+                    self.serial_status(port=path, error=f"{path}: {error}")
+                finally:
+                    if serial is not None:
+                        serial.close()
+                    self.publish(connected=False, position=None, touching=False)
+            self.stop.wait(1)
+
 
 def serve(sensor, root, port):
     local_origin = f"http://127.0.0.1:{port}"
@@ -194,7 +262,8 @@ def serve(sensor, root, port):
                 if path == "/diagnostics":
                     snapshot = sensor.snapshot()
                     with sensor.lock:
-                        data = {"state": snapshot, "events": list(sensor.events), "trace": list(sensor.trace)}
+                        data = {"state": snapshot, "events": list(sensor.events), "trace": list(sensor.trace),
+                                "transport": dict(sensor.transport), "raw": list(sensor.raw)}
                 else:
                     data = sensor.snapshot()
                 payload = json.dumps(data).encode()

@@ -1,4 +1,4 @@
-// The USB reader stays on this Mac. The hosted scene receives only sensor data.
+// The USB reader stays on the control computer. The hosted scene receives only sensor data.
 export function connectFlick({ onPosition, onTouch }) {
   const button = document.querySelector('#flick-connect');
   const status = document.querySelector('#flick-status');
@@ -24,7 +24,7 @@ export function connectFlick({ onPosition, onTouch }) {
     const p = state.position;
     const valid = connected && p && ['x', 'y', 'z'].every(k => Number.isFinite(p[k]) && p[k] >= 0 && p[k] <= 100);
     onPosition(valid ? p : null);
-    show(connected ? (state.touching === true ? 'Flick · dotyk držen' : valid ? 'Flick · prst detekován' : 'Flick připojen') : 'Čekám na USB senzor…', connected);
+    show(connected ? (state.touching === true ? 'Flick · dotyk držen' : valid ? 'Flick · prst detekován' : 'Flick připojen') : (state.error || 'Čekám na USB senzor…'), connected);
     if (lastTouch !== null && state.touchId !== lastTouch && connected && Date.now() - state.touchAt < 2000) onTouch();
     lastTouch = state.touchId;
   }
