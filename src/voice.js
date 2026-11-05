@@ -22,11 +22,12 @@ export function setupVoice({room}){
   const show=message=>{$('voice-status').textContent=message;};
   function stopRecording(){if(recorder?.state==='recording'){stoppedAt=performance.now();recorder.stop();}clearInterval(timer);}
   async function begin(session){
-    if(document.hidden||room.state()?.guide?.demo||!stream||busy||recorder?.state==='recording'||session===lastAttempted)return;
+    if(room.state()?.guide?.demo||!stream||busy||recorder?.state==='recording'||session===lastAttempted)return;
     lastAttempted=session;
     try{
-      await context.resume();
-      if(context.state!=='running')throw new Error('Mikrofon není aktivní. Zapni ho znovu v tomto okně.');
+      // Recording uses the microphone stream directly. Autoplay restrictions on
+      // the optional level analyser must not block Flick recording in background.
+      context.resume().catch(()=>{});
       await request('/api/voice/claim',{session,owner});
       if(room.state()?.guide?.session!==session||room.state()?.guide?.phase!=='listening')return;
       const chunks=[];
@@ -90,12 +91,16 @@ export function setupVoice({room}){
     try{
       if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw new Error('Tento prohlížeč neumí nahrávat mikrofon. Otevři místní náhled v Chrome nebo Safari.');
       stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
-      context=new AudioContext();await context.resume();analyser=context.createAnalyser();analyser.fftSize=2048;
+      context=new AudioContext();context.resume().catch(()=>{});analyser=context.createAnalyser();analyser.fftSize=2048;
       context.createMediaStreamSource(stream).connect(analyser);
       ready=true;pendingPermission=false;$('voice-start').disabled=false;$('voice-enable').textContent='Vypnout mikrofon';update(room.state());
     }catch(error){stream?.getTracks().forEach(track=>track.stop());show(error.name==='NotAllowedError'?'Povol mikrofon v prohlížeči a zkus to znovu.':error.message);}finally{pendingPermission=false;$('voice-enable').disabled=false;}
   };
-  $('voice-start').onclick=()=>request('/api/voice/start',{}).catch(error=>show(error.message));
+  // Reuse a permission the user already granted; never prompt automatically.
+  navigator.permissions?.query({name:'microphone'}).then(permission=>{
+    if(permission.state==='granted'&&!ready&&!pendingPermission) $('voice-enable').click();
+  }).catch(()=>{});
+  $('voice-start').onclick=()=>{context?.resume().catch(()=>{});request('/api/voice/start',{}).catch(error=>show(error.message));};
   $('voice-form').onsubmit=async event=>{
     event.preventDefault();if(busy||!$('voice-text').value.trim())return;
     busy=true;if(recordSession!==null)cancelled.add(recordSession);stopRecording();
