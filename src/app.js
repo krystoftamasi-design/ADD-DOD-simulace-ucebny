@@ -1,4 +1,4 @@
-import {setupVoice} from './voice.js?v=demo-r1';
+import {setupVoice} from './voice.js?v=background-r1';
 import {setupBubbleAudio} from './bubble-audio.js';
 import * as THREE from 'three';
 import { addTableProjector } from './projector.js?v=contact-r4';
