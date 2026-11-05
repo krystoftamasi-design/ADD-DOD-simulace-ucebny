@@ -12,7 +12,7 @@ Přiřazení monitorů je v lokálním `layout.json` (ignorovaném Gitem). Reži
 
 Testy jsou součástí `npm test`. Pro náhled zobrazovací stránky bez registrace dalšího fyzického monitoru použij `/?preview=1`.
 
-Shlukování podle prstu používá společné tlumené dotahování z `mascot/spawn-model.js`. Nový cíl zachová aktuální polohu i rychlost, takže rychlé změny XYZ znovu nerozjíždějí pohyb z nuly. `spawnSettings.followResponseMs` je časová konstanta 80 ms (přibližně 95 % změny za 380 ms). Výpočet vychází ze sdíleného času a funguje shodně při různých FPS; dotyk a uvolnění mikrofonu se nefiltrují. Stejný model používá ruční posuvník v knihovně animací.
+Shlukování podle prstu používá společné tlumené dotahování z `mascot/spawn-model.js`. Nový cíl zachová aktuální polohu i rychlost, takže rychlé změny XYZ znovu nerozjíždějí pohyb z nuly. `spawnSettings.followResponseMs` je časová konstanta 180 ms (přibližně 95 % změny za 850 ms). Výpočet vychází ze sdíleného času a funguje shodně při různých FPS; dotyk a uvolnění mikrofonu se nefiltrují. Stejný model používá ruční posuvník v knihovně animací.
 
 Živé úpravy animací kontrolují každých 750 ms pouze malý identifikátor `/api/animation-version`. Soubory rendererů a jejich závislostí se stáhnou znovu až po změně; čas animace, vykreslování, mikrofon i WebSocket spojení zůstávají při úpravě zachované. Na statickém serveru bez tohoto endpointu funguje původní kontrola souborů. Síťový server na 8000 navíc pro soubory a obrázky používá ETag s povinným ověřením aktuálnosti: opakovaný nezměněný obsah vrátí 304 bez těla. Obrázky se nezmenšují ani znovu nekomprimují, dynamické API a údaje Flicku zůstávají bez cache.
 

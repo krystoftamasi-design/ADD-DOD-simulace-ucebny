@@ -4,14 +4,15 @@ import {followGather,gatherAt,gatherMotion} from '../mascot/spawn-model.js';
 import {SpawnController,initialSpawn} from './spawn-state.mjs';
 const retarget=(spawn,target,now)=>({...spawn,amount:followGather(spawn,target,now)});
 
-test('finger following has a small lag, a soft start, and a settled endpoint without bounce',()=>{
+test('finger following eases in slowly and settles in about a second without bounce',()=>{
   const spawn=retarget(initialSpawn(),1,0);
   assert.equal(gatherAt(spawn,0),0);
-  assert(gatherAt(spawn,50)>.1&&gatherAt(spawn,50)<.2);
-  assert(gatherAt(spawn,150)>.5&&gatherAt(spawn,150)<.7);
-  assert(gatherAt(spawn,400)>.95);assert.equal(gatherAt(spawn,1500),1);
+  assert(gatherAt(spawn,50)>.02&&gatherAt(spawn,50)<.05);
+  assert(gatherAt(spawn,150)>.15&&gatherAt(spawn,150)<.25);
+  assert(gatherAt(spawn,400)>.6&&gatherAt(spawn,400)<.7);
+  assert(gatherAt(spawn,900)>.95);assert.equal(gatherAt(spawn,2500),1);
   let previous=0;
-  for(let now=0;now<1600;now+=7){const value=gatherAt(spawn,now);assert(value>=previous&&value<=1);previous=value;}
+  for(let now=0;now<2600;now+=7){const value=gatherAt(spawn,now);assert(value>=previous&&value<=1);previous=value;}
 });
 test('rapid finger reversals preserve both position and velocity instead of restarting the ease',()=>{
   let spawn=retarget(initialSpawn(),1,0);
@@ -22,7 +23,7 @@ test('rapid finger reversals preserve both position and velocity instead of rest
     const dt=.001,after=gatherAt(spawn,now+dt);
     assert(Math.abs((after-before.value)/(dt/1000)-before.velocity)<.001);
   }
-  assert.equal(gatherAt(spawn,2000),0);
+  assert.equal(gatherAt(spawn,3000),0);
 });
 test('fast repeated input stays bounded and serialized displays agree regardless of sampling rate',()=>{
   let spawn=initialSpawn();
@@ -45,8 +46,8 @@ test('the visual follow does not delay physical touch or release',()=>{
   const sensor=(touching,touchId)=>({connected:true,touching,touchId,touchAt:10000,position:touching?{x:50,y:50,z:0}:null});
   controller.update(sensor(false,0),0,10000);
   controller.update(sensor(true,1),100,10001);assert.equal(controller.state.phase,'listening');
-  const before=gatherAt(controller.state,500);
-  controller.update(sensor(false,1),500,10002);
-  assert.equal(controller.state.phase,'idle');assert.equal(gatherAt(controller.state,500),before);
-  assert(before>.95);assert(gatherAt(controller.state,550)>.8);
+  const before=gatherAt(controller.state,1100);
+  controller.update(sensor(false,1),1100,10002);
+  assert.equal(controller.state.phase,'idle');assert.equal(gatherAt(controller.state,1100),before);
+  assert(before>.95);assert(gatherAt(controller.state,1150)>.8);
 });

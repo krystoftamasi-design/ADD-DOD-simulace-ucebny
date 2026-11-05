@@ -27,7 +27,7 @@ test('approach and withdrawal interpolate from the current position without jump
   const before=gatherAt(c.state,1100);
   c.update(sensor(10),1100,10000);assert.equal(gatherAt(c.state,1100),before);
   const middle=gatherAt(c.state,1200);c.update(null,1200,10000);
-  assert.equal(gatherAt(c.state,1200),middle);assert.equal(gatherAt(c.state,2700),0);
+  assert.equal(gatherAt(c.state,1200),middle);assert.equal(gatherAt(c.state,3700),0);
 });
 test('touch starts listening and confirmed removal stops it',()=>{
   const c=new SpawnController(0);c.update(sensor(5,0),0,10000);

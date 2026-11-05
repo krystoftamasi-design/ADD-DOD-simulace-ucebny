@@ -3,7 +3,7 @@ import {mascotBounds} from './cursor-follow.js';
 import {sampleFlight,neighbours} from './bubble-flight.js';
 
 export const spawnSurfaces = [1,2,3,4,5,6,7,8,9,10,'projector'];
-export const spawnSettings={dotsPerMonitor:12,projectionDots:22,followResponseMs:80};
+export const spawnSettings={dotsPerMonitor:12,projectionDots:22,followResponseMs:180};
 export const clamp = value => Math.max(0, Math.min(1, value));
 export const smooth = value => {const t=clamp(value);return t*t*(3-2*t);};
 export function gatherMotion(spawn, now) {

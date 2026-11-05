@@ -66,7 +66,7 @@ test('the gallery slider uses the same smooth finger follow as the real classroo
   const withdrawal=followSpawn(middle,0,false,100);
   const next=sampleScene('spawn',.1,.1,withdrawal).state;
   assert.deepEqual(gatherMotion(next.spawn,100),gatherMotion(middle,100));
-  assert.equal(next.guide.phase,'idle');assert.equal(gatherAt(next.spawn,1600),0);
+  assert.equal(next.guide.phase,'idle');assert.equal(gatherAt(next.spawn,2600),0);
 });
 
 test('thinking, simultaneous 400 ms reveal and results use actual guide phases and assignments',()=>{
