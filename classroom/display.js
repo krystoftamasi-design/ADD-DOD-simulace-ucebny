@@ -81,8 +81,11 @@
   if(location.pathname!=='/projector')return;
   document.body.classList.add('projector');
   var canvas=document.getElementById('stage'), bar=document.createElement('div');
-  var defaults=[[0,0],[1,0],[1,1],[0,1]], points;
-  var key='dod-projector-perspective-v1';
+  // Shared projector crop, captured at full precision from the installation.
+  // Fractions of the viewport keep the same geometry on Windows and macOS.
+  var defaults=[[0,0.009259259700775147],[0.9833333969116211,0.02037037081188626],[0.9645833969116211,0.8287037319607204],[0.02604166865348816,0.8657407972547743]], points;
+  // A new baseline must also replace older browser-only calibration on a Mac.
+  var key='dod-projector-perspective-v2';
   function valid(p){
     if(!Array.isArray(p)||p.length!==4||!p.every(function(q){return Array.isArray(q)&&q.length===2&&q.every(function(n){return typeof n==='number'&&isFinite(n)&&n>=0&&n<=1;});}))return false;
     return p.every(function(a,i){var b=p[(i+1)%4],c=p[(i+2)%4];return (b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0])>0.0001;});
