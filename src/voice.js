@@ -1,11 +1,18 @@
+import {MIN_RECORDING_MS} from './listening.js';
+
 const endpoint='http://127.0.0.1:8000';
+export function recordingError({size,durationMs,heard}){
+  if(!size||durationMs<MIN_RECORDING_MS)return 'Záznam skončil příliš brzy. Přidrž prst alespoň 2 sekundy.';
+  if(!heard)return 'Nezachytil jsem řeč. Přilož prst a zkus to znovu.';
+  return null;
+}
 export function setupVoice({room}){
   if(!['127.0.0.1','localhost'].includes(location.hostname))return {update(){}};
   const dock=document.createElement('section');dock.className='voice-dock';
   dock.innerHTML='<div class="voice-top"><button id="voice-enable">Povolit mikrofon</button><button id="voice-start" disabled>Mluvit teď</button><span id="voice-status" role="status">Připravuji hlasové příkazy…</span></div><p id="voice-transcript"></p><details><summary>Zadat požadavek textem</summary><form id="voice-form"><input id="voice-text" aria-label="Požadavek na studentskou práci" placeholder="Např. ukaž nejlepší animace z roku 2025" maxlength="2000" required><button>Vybrat práci</button></form></details><div class="voice-demos"><div class="voice-demo-heading"><span>Vyzkoušet animaci</span><span id="voice-demo-mode">Flick · automaticky</span></div><div id="voice-demo-buttons" role="group" aria-label="Ukázky stavů maskota"></div><p id="voice-demo-note" hidden></p></div>';
   document.querySelector('main').append(dock);
   const $=id=>dock.querySelector('#'+id),owner=crypto.randomUUID();
-  let stream,context,analyser,recorder,recordSession=null,lastAttempted=null,timer,lastSpeech=0,heard=false,started=0,busy=false;
+  let stream,context,analyser,recorder,recordSession=null,lastAttempted=null,timer,lastSpeech=0,heard=false,started=0,stoppedAt=null,busy=false;
   let ready=false,pendingPermission=false,demoBusy=false;
   const cancelled=new Set();
   async function request(path,body,raw=false){
@@ -13,7 +20,7 @@ export function setupVoice({room}){
     const result=await response.json();if(!response.ok)throw new Error(result.error||'Požadavek se nepodařil.');return result;
   }
   const show=message=>{$('voice-status').textContent=message;};
-  function stopRecording(){if(recorder?.state==='recording')recorder.stop();clearInterval(timer);}
+  function stopRecording(){if(recorder?.state==='recording'){stoppedAt=performance.now();recorder.stop();}clearInterval(timer);}
   async function begin(session){
     if(document.hidden||room.state()?.guide?.demo||!stream||busy||recorder?.state==='recording'||session===lastAttempted)return;
     lastAttempted=session;
@@ -32,21 +39,21 @@ export function setupVoice({room}){
         busy=true;
         try{
           const blob=new Blob(chunks,{type:recorder.mimeType});
-          if(!blob.size||(!heard&&performance.now()-started<350))throw new Error('Záznam skončil příliš brzy. Přidrž prst při mluvení.');
-          if(!heard&&!room.state()?.guide?.holdToTalk)throw new Error('Nezachytil jsem řeč. Přilož prst a zkus to znovu.');
+          const error=recordingError({size:blob.size,durationMs:(stoppedAt??performance.now())-started,heard});
+          if(error)throw new Error(error);
           show('Přepisuji řeč…');
           await request(`/api/voice/audio?session=${session}&owner=${encodeURIComponent(owner)}`,blob,true);
         }catch(error){show(error.message);await request('/api/voice/error',{session,message:error.message}).catch(()=>{});}
         finally{busy=false;}
       };
       recorder.onerror=()=>{show('Nahrávání se nepodařilo.');stopRecording();};
-      heard=false;started=performance.now();lastSpeech=started;recorder.start();show('Poslouchám — řekni, jakou práci chceš vidět.');
+      heard=false;started=performance.now();stoppedAt=null;lastSpeech=started;recorder.start();show('Poslouchám — řekni, jakou práci chceš vidět.');
       const samples=new Float32Array(analyser.fftSize);
       timer=setInterval(()=>{
         analyser.getFloatTimeDomainData(samples);
         const rms=Math.sqrt(samples.reduce((sum,n)=>sum+n*n,0)/samples.length),now=performance.now();
         if(rms>.008){heard=true;lastSpeech=now;}
-        if(!room.state()?.guide?.holdToTalk&&heard&&now-lastSpeech>1600&&now-started>900||now-started>20000)stopRecording();
+        if(!room.state()?.guide?.holdToTalk&&heard&&now-lastSpeech>1600&&now-started>=MIN_RECORDING_MS||now-started>20000)stopRecording();
       },100);
     }catch(error){show(error.message);}
   }

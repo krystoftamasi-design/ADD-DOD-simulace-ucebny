@@ -12,6 +12,7 @@ import { VoiceSession } from './voice-session.mjs';
 import { SpawnController } from './spawn-state.mjs';
 import { HoverReset,advanceResetGesture } from './hover-reset.mjs';
 import { demoScenes,demoSpawn } from './demo-scenes.mjs';
+import {animationVersion,sendAsset,sendImage} from './http-assets.mjs';
 
 const addresses = Object.values(networkInterfaces()).flat().filter(item => item.family === 'IPv4' && !item.internal).map(item => item.address);
 const address = process.env.DOD_ADDRESS || addresses[0] || '127.0.0.1';
@@ -34,6 +35,7 @@ const assets = new Map([
   ['/room/native-body.json', ['../mascot/native-body.json', 'application/json']],
   ['/room/mascot.json', ['../mascot/mascot.json', 'application/json']],
 ]);
+const animationFiles=[...assets.values()].filter(([file])=>file.endsWith('.js')).map(([file])=>new URL(file,import.meta.url));
 let registry = [];
 try { registry = JSON.parse(await readFile(layoutFile, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const peers = new Map();
@@ -130,6 +132,10 @@ const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,`http://${req.headers.host}`);
   if(req.headers.origin){res.setHeader('Access-Control-Allow-Origin',req.headers.origin);res.setHeader('Vary','Origin');}
   if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'}).end();return;}
+  if(url.pathname==='/api/animation-version'&&req.method==='GET'){
+    try{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({version:await animationVersion(animationFiles)}));}
+    catch{res.writeHead(503).end();}return;
+  }
   if(url.pathname.startsWith('/api/voice/')){
     if(!isLocal(req.socket)){res.writeHead(403).end();return;}
     res.setHeader('Content-Type','application/json');
@@ -179,7 +185,7 @@ const server=http.createServer(async(req,res)=>{
     }catch(error){res.writeHead(error.status||500).end(JSON.stringify({error:error.message}));}return;
   }
   if(/^\/guide\/media\/\d+$/.test(url.pathname)&&req.method==='GET'){
-    try{if(!guide)throw new Error();const response=await fetch(guide.url+url.pathname.slice(6));if(!response.ok)throw new Error();res.setHeader('Content-Type',response.headers.get('content-type')||'image/jpeg');res.end(Buffer.from(await response.arrayBuffer()));}
+    try{if(!guide)throw new Error();const response=await fetch(guide.url+url.pathname.slice(6));if(!response.ok)throw new Error();sendImage(req,res,Buffer.from(await response.arrayBuffer()),response.headers.get('content-type')||'image/jpeg');}
     catch{res.writeHead(404).end();}return;
   }
   if(url.pathname==='/favicon.ico'){res.writeHead(204).end();return;}
@@ -200,7 +206,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method!=='GET'||!assets.has(url.pathname)){res.writeHead(404).end();return;}
   const [file,type]=assets.get(url.pathname);
-  try{res.setHeader('Content-Type',type+'; charset=utf-8');res.end(await readFile(new URL(file,import.meta.url)));}
+  try{await sendAsset(req,res,new URL(file,import.meta.url),type+'; charset=utf-8');}
   catch{res.writeHead(500).end();}
 });
 const wss=new WebSocketServer({noServer:true,maxPayload:8192});

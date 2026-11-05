@@ -9,7 +9,7 @@ import vm from 'node:vm';
 // shared imports supplied explicitly, as in the bloom renderer tests.
 const scope={screenTiles,randomAt,exhibitionImageFrame};
 vm.runInNewContext(readFileSync(new URL('./guide-renderer.js',import.meta.url),'utf8').replace(/^import .*;$/gm,'').replaceAll('export function','function'),scope);
-const {createWorkTour,sampleWorkTour,tourFlightProgress,workCorner,workImageFrame}=scope;
+const {createWorkTour,sampleWorkTour,tourFlightProgress,workCorner,workImageFrame,createRecallTour,sampleRecallTour}=scope;
 
 const assignments=[1,3,6,8,10].map(station=>({station,project:{id:'work-'+station,images:[{url:'/media/'+station}]}}));
 const guide={session:31,assignments};
@@ -105,10 +105,43 @@ test('individual delayed circles trail the flight and settle back into the body 
   assert.equal(p.trail.length,7);assert(new Set(p.trail.map(b=>b.radius)).size>3);
   const lag=p.trail.reduce((sum,b)=>sum+(p.x-b.x)*p.gazeX/25+(p.y-b.y)*p.gazeY/20,0)/p.trail.length;
   assert(lag>.01);assert(p.trail.every(b=>b.radius>0&&!('alpha' in b)));
+  assert(p.trail.every(b=>b.radius<p.size*.09),'trailing circles stay within the scale of the original body circles');
   const landing=LAUNCH+tour.initial.flight,station=tour.initial.to.station;
   assert(sample(landing+100,station).trail.length>0);assert.equal(sample(landing+300,station).trail.length,0);
 });
 test('after the first departure the mascot never takes a shortcut through the projection',()=>{
   for(let age=LAUNCH+tour.initial.end;age<LAUNCH+tour.initial.end+tour.duration;age+=101)
     assert.equal(sample(age,'projector'),null);
+});
+test('a recording recalls one mascot along the shared edges after one second, then leaves it on the projection',()=>{
+  const source={...guide,phase:'presenting',revealAt:-20000},plan=createRecallTour(source,0);
+  const surfaces=['projector',...Object.keys(screenTiles).map(Number)];
+  assert.equal(plan.returnAt,1000);assert.notEqual(plan.initial.from.station,'projector');
+  for(const station of surfaces)
+    assert.deepEqual(sampleRecallTour(plan,999,station,1600,900),sampleWorkTour(tour,20999,station,1600,900));
+  const from=plan.initial.from.station,a=sampleRecallTour(plan,999.999,from,1600,900),b=sampleRecallTour(plan,1000,from,1600,900);
+  close(a.x,b.x);close(a.y,b.y);close(a.size,b.size,.001);
+  for(let now=1001;now<1000+plan.initial.flight;now+=29){
+    const poses=surfaces.map(station=>({station,p:sampleRecallTour(plan,now,station,1600,900)})).filter(({p})=>p);
+    const centres=poses.filter(({p})=>p.x>=0&&p.x<1&&p.y>=0&&p.y<1);
+    assert.equal(centres.length,1,`one mascot at ${now}`);
+    assert(poses.every(({p})=>Number.isFinite(p.size)&&p.trail.every(b=>b.radius<p.size*.09)));
+  }
+  const landed=1000+plan.initial.flight;
+  for(const station of surfaces){
+    const pose=sampleRecallTour(plan,landed,station,1600,900);
+    if(station==='projector'){close(pose.x,.5);close(pose.y,.42);close(pose.size,736);assert.equal(pose.gazeY,48);}
+    else assert.equal(pose,null);
+  }
+});
+test('cancelling a short recording retains the exact previous tour',()=>{
+  assert.deepEqual(createWorkTour({...guide,session:guide.session+10,tourSession:guide.session}),tour);
+});
+test('recall starts at the currently displayed corner for portrait works and different monitor shapes',()=>{
+  const age=LAUNCH+tour.initial.flight+400,source={...guide,phase:'presenting',revealAt:1000-age};
+  const plan=createRecallTour(source,0),station=tour.initial.to.station;
+  for(const [width,height,iw,ih] of [[1600,900,600,1800],[1280,1024,600,1800],[900,1600,1800,600]]){
+    const a=sampleRecallTour(plan,999.999,station,width,height,iw,ih),b=sampleRecallTour(plan,1000,station,width,height,iw,ih);
+    close(a.x,b.x);close(a.y,b.y);close(a.size,b.size,.001);close(a.rotation,b.rotation,.001);
+  }
 });

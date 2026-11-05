@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createWorkPresentation,exhibitionImageFrame,wrapWorkText,cleanWorkText,selectedWorkImage} from '../mascot/work-presentation.js';
+import {createWorkPresentation,exhibitionImageFrame,wrapWorkText,cleanWorkText,selectedWorkImage,projectionPromptLayout,projectionPromptOpacity,projectionPromptBubble} from '../mascot/work-presentation.js';
 const work={id:'one',title:'Vztah obrazu a prostoru',author:'Jana Nováková',year:'2025/2026',grade:'A+',description:'Autorský projekt zkoumá obraz a prostor. '.repeat(15)};
 function context(clientWidth=1280){
  const texts=[],images=[];return {canvas:{clientWidth},texts,images,globalAlpha:1,
@@ -8,6 +8,27 @@ function context(clientWidth=1280){
   save(){},restore(){},scale(){},beginPath(){},rect(){},clip(){},arc(){},fill(){},stroke(){},moveTo(){},lineTo(){},
   fillText(text,x,y){texts.push({text,x,y,font:this.font});},drawImage(...args){images.push(args);}};
 }
+test('projection prompt disappears on detection without waiting for gathered animation frames',()=>{
+ const amount={from:0,to:0,at:100,duration:300};
+ assert.equal(projectionPromptOpacity({fingerPresent:true,amount},0),0);
+ assert.equal(projectionPromptOpacity({amount:{...amount,to:.01}},0),0);
+ assert.equal(projectionPromptOpacity({fingerPresent:false,amount},0),1);
+ assert.equal(projectionPromptOpacity({fingerPresent:false,amount},.1),0);
+});
+test('projection bubbles move around every side of the prompt without touching either text line',()=>{
+ for(const [width,height] of [[1180,640],[480,260],[1600,900]]){
+  const layout=projectionPromptLayout(context(),width,height),sides=new Set();
+  for(let seconds=0;seconds<90;seconds+=.25)for(let id=120;id<142;id++){
+   const extent=width*(.012+(id%11)*.001)*1.11;
+   const p=projectionPromptBubble(id,seconds,layout,width,height,extent);
+   assert(Number.isFinite(p.x)&&Number.isFinite(p.y));
+   assert(p.x+extent<=layout.left||p.x-extent>=layout.right||p.y+extent<=layout.top||p.y-extent>=layout.bottom);
+   if(p.x+extent<layout.left)sides.add('left');if(p.x-extent>layout.right)sides.add('right');
+   if(p.y+extent<layout.top)sides.add('top');if(p.y-extent>layout.bottom)sides.add('bottom');
+  }
+  assert.equal(sides.size,4);
+ }
+});
 test('exhibition fills the hero area without cropping and reserves the bottom credits',()=>{
  for(const [width,height,iw,ih] of [[1600,900,2000,800],[1280,1024,600,1800],[900,1600,1800,600]]){
   const frame=exhibitionImageFrame(width,height,iw,ih);

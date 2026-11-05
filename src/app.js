@@ -1,4 +1,5 @@
 import {setupVoice} from './voice.js?v=demo-r1';
+import {setupBubbleAudio} from './bubble-audio.js';
 import * as THREE from 'three';
 import { addTableProjector } from './projector.js?v=contact-r4';
 import { connectFlick } from './flick.js?v=contact-r4';
@@ -167,8 +168,9 @@ renderer.domElement.addEventListener('pointerup',event=>{
  if(pointAt(event))openProjection();
 });
 renderer.domElement.addEventListener('pointercancel',()=>{pointerDown=null});
-let voiceUi;
+let voiceUi,bubbleAudio;
 function refreshControls(client){
+ bubbleAudio?.update(roomFrame(performance.now()));
  voiceUi?.update(client.state?.());
  const connected=client.connected,state=connected?client.state():standaloneState,count=client.roster?.length||0;
  document.querySelector('#room-status').textContent=connected?'Učebna · '+count+' obrazovek · '+client.roster.filter(item=>item.station).length+' přiřazeno':'Samostatný náhled';
@@ -197,20 +199,27 @@ const simulateAll=document.querySelector('#simulate-all');
 simulateAll.checked=!localControl;
 const room=localControl?new window.DodRoom({role:'control',url:'ws://127.0.0.1:8000/room/ws',onChange:refreshControls}):{connected:false};
 voiceUi=setupVoice({room});
+bubbleAudio=setupBubbleAudio({frame:()=>roomFrame(performance.now())});
 refreshControls(room);
 function simulatedGuide(guide,order){
  if(!guide)return guide;
- const result=guide.phase==='presenting'?{...guide,assignments:(guide.projects||[guide.project]).filter(Boolean).slice(0,order.length).map((project,i)=>({station:order[i],project}))}:guide;
+ let result=guide.phase==='presenting'?{...guide,assignments:(guide.projects||[guide.project]).filter(Boolean).slice(0,order.length).map((project,i)=>({station:order[i],project}))}:guide;
+ if(guide.recall)result={...result,recall:{...guide.recall,source:simulatedGuide(guide.recall.source,order)}};
  return guide.resetGesture?{...result,resetGesture:{...guide.resetGesture,source:simulatedGuide(guide.resetGesture.source,order)}}:result;
 }
-function renderScreens(now){
+function roomFrame(now){
  const connected=room.connected&&room.state();
  const state=connected?room.state():standaloneState;
  const serverTime=connected?room.time(now):now;
- if(serverTime===null)return;
  const simulatedOrder=state.route==='pair'?[8,7]:layout.map(item=>item.id);
  const previewAll=simulateAll.checked||!!state.guide?.demo;
  const viewState=previewAll?{...state,order:simulatedOrder,guide:simulatedGuide(state.guide,simulatedOrder)}:state;
+ return {state:viewState,time:serverTime,connected,previewAll};
+}
+function renderScreens(now){
+ const {state:viewState,time:serverTime,connected,previewAll}=roomFrame(now);
+ if(serverTime===null)return;
+ bubbleAudio.update({state:viewState,time:serverTime});
  tableProjector.setRoomState(viewState,serverTime);
  const online=new Set(connected?room.roster.filter(item=>item.station).map(item=>item.station):[]);
  for(const [id,screen] of screens){

@@ -32,11 +32,56 @@ test('reset holds the before-spawn state, but a fresh touch can immediately star
  c.update(sensor(5,true,1),1700,10001,g.latched);assert.equal(c.state.phase,'listening');
  g.update(sensor(5,true,1),1700,{enabled:false,touching:c.contact.active});assert.equal(g.latched,false);
 });
-test('a hover reset cancels an in-flight selection without letting stale results return',async()=>{
+test('hover cannot cancel an in-flight selection, including after a fresh approach',async()=>{
  let resolve;const voice=new VoiceSession({onChange:()=>{},classify:()=>new Promise(r=>resolve=r)});
  voice.begin();const selection=voice.submit({session:voice.serial,text:'web'});
- const g=new HoverReset();for(let now=0;now<=1500;now+=100)if(g.update(sensor(50),now))voice.reset();
- resolve({projects:[{id:'old'}]});await selection;assert.equal(voice.state.phase,'idle');
+ const g=new HoverReset(),spawn=new SpawnController();
+ for(let now=0;now<=3000;now+=100)assert.equal(advanceResetGesture(g,voice,spawn,sensor(now===1000?90:50),now),null);
+ resolve({projects:[{id:'result'}]});await selection;
+ assert.equal(voice.state.phase,'thinking');assert.equal(voice.state.prepared,true);
+ assert.equal(voice.state.project.id,'result');assert.equal(voice.state.resetGesture,undefined);
+});
+
+test('lifting from recording into hover preserves transcription and selection until a fresh approach',async()=>{
+ let now=0,finishTranscription,finishSelection;
+ const voice=new VoiceSession({clock:()=>now,onChange:()=>{},
+  transcribe:()=>new Promise(resolve=>finishTranscription=resolve),
+  classify:()=>new Promise(resolve=>finishSelection=resolve)});
+ const hover=new HoverReset(),spawn=new SpawnController();
+ const update=(input,time)=>{now=time;return advanceResetGesture(hover,voice,spawn,input,time);};
+ voice.begin({holdToTalk:true});const session=voice.serial;
+ assert(voice.claim(session,'mac'));update(sensor(5,true),0);now=2000;voice.finish();
+ const pending=voice.submit({session,audio:Buffer.from('recording')});
+ for(let time=2100;time<=4000;time+=100)assert.equal(update(sensor(40),time),null);
+ assert.equal(voice.state.phase,'transcribing');assert.equal(voice.serial,session);
+ finishTranscription('Ukaž animace');await new Promise(resolve=>setImmediate(resolve));
+ for(let time=4100;time<=8000;time+=100)assert.equal(update(sensor(40),time),null);
+ assert.equal(voice.state.phase,'thinking');assert.equal(voice.serial,session);
+ assert.equal(voice.state.resetGesture,undefined);
+ finishSelection({projects:[{id:'new'}]});await pending;
+ assert.equal(voice.state.project.id,'new');assert.equal(voice.state.prepared,true);
+ voice.tick();assert.equal(voice.state.phase,'presenting');
+ assert.equal(update(sensor(73),8100),null);
+ assert.equal(update(sensor(40),8200),'hold');
+ for(let time=8300;time<8200+RESET_HOLD_MS;time+=100)assert.equal(update(sensor(40),time),null);
+ assert.equal(update(sensor(40),8200+RESET_HOLD_MS),'burst');
+});
+
+test('withdrawal during processing cannot arm reset until results have been shown',()=>{
+ const r=animationRig();r.voice.set({phase:'listening'});r.update(sensor(5,true),0);
+ r.voice.set({phase:'transcribing'});r.update({connected:true,position:null,touching:false},100);
+ r.voice.set({phase:'thinking'});assert.equal(r.update(sensor(40),200),null);
+ r.voice.set({phase:'presenting'});assert.equal(r.update(sensor(40),300),null);
+ assert.equal(r.update(sensor(73),400),null);assert.equal(r.update(sensor(40),500),'hold');
+});
+test('hover cannot reset finishing, transcription, or generation even after a fresh approach',()=>{
+ for(const phase of ['finishing','transcribing','thinking']){
+  const voice=new VoiceSession({onChange:()=>{}}),hover=new HoverReset(),spawn=new SpawnController();
+  voice.set({phase});const session=voice.serial;
+  for(let now=0;now<=4000;now+=100)
+   assert.equal(advanceResetGesture(hover,voice,spawn,sensor(now===1000?90:40),now),null);
+  assert.equal(voice.state.phase,phase);assert.equal(voice.serial,session);assert.equal(voice.state.resetGesture,undefined);
+ }
 });
 
 function animationRig(){
@@ -47,10 +92,11 @@ function animationRig(){
  return {voice,hover,spawn,messages,update(input,time,options){now=time;return advanceResetGesture(hover,voice,spawn,input,time,options);}};
 }
 test('hover freezes the guide once, bursts at the limit, then clears works after the shared animation',()=>{
- const r=animationRig();assert.equal(r.update(sensor(50),0),'hold');
+ const r=animationRig();r.voice.set({tourSession:31});assert.equal(r.update(sensor(50),0),'hold');
  const frozen=r.voice.state.resetGesture;assert.equal(frozen.frozenAt,0);assert.equal(frozen.source.revealAt,-5000);
+ assert.equal(frozen.source.tourSession,31);
  for(let now=100;now<RESET_HOLD_MS;now+=100)assert.equal(r.update(sensor(50),now),null);
- assert.equal(r.voice.state.resetGesture,frozen);assert.equal(r.messages.length,2);
+ assert.equal(r.voice.state.resetGesture,frozen);assert.equal(r.messages.length,3);
  assert.equal(r.update(sensor(50),RESET_HOLD_MS),'burst');
  assert.equal(r.voice.state.phase,'presenting');assert.equal(r.voice.state.resetGesture.phase,'burst');
  assert.equal(r.voice.state.resetGesture.spawn.amount.to,0);assert.equal(r.hover.latched,true);

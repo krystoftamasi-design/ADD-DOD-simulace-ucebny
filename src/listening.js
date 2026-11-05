@@ -1,3 +1,5 @@
+export const MIN_RECORDING_MS = 2000;
+
 const WITHDRAWAL_MARGIN = 12; // Percentage points of the sensor's Z range above the touch height.
 const RELEASE_CONFIRM_MS = 120;
 

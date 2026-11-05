@@ -1,4 +1,4 @@
-import {watchModules} from './live-edit.js?v=live-r1';
+import {watchModules} from './live-edit.js?v=network-r1';
 
 const entries=Object.fromEntries(['mascot-canvas','guide-renderer','spawn-renderer'].map(name=>[name,new URL('./'+name+'.js',import.meta.url).href]));
 Promise.all(['/room/mascot.json','/room/native-body.json'].map(async url=>{
@@ -9,7 +9,8 @@ Promise.all(['/room/mascot.json','/room/native-body.json'].map(async url=>{
   character.nativeBody=nativeBody;
   const canvas=document.createElement('canvas');canvas.width=480;canvas.height=260;
   const ctx=canvas.getContext('2d');
-  watchModules({entries,async apply(modules){
+  const versionUrl=new URL('/api/animation-version',['8765','5173'].includes(location.port)?'http://127.0.0.1:8000':location.origin).href;
+  watchModules({entries,versionUrl,async apply(modules){
     const draw=modules['mascot-canvas'].createCanvasCharacter(character);
     const guide=modules['guide-renderer'].createGuideRenderer(character);
     const spawn=modules['spawn-renderer'].createSpawnRenderer(character);

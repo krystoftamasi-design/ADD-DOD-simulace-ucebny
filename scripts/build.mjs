@@ -8,9 +8,12 @@ const html = (await readFile(new URL('index.html', root), 'utf8'))
   .replace('src/app.js', 'app.js').replace('src/style.css', 'style.css')
   .replace('classroom/timeline.js', 'room-timeline.js').replace('classroom/sync.js', 'room-sync.js');
 await writeFile(new URL('index.html', out), html);
-for (const name of ['app.js', 'projector.js', 'listening.js', 'voice.js', 'flick.js', 'style.css']) {
+for (const name of ['app.js', 'projector.js', 'listening.js', 'voice.js', 'flick.js', 'bubble-audio.js', 'bubble-sound-model.js', 'style.css']) {
   await copyFile(new URL('src/' + name, root), new URL(name, out));
 }
+await mkdir(new URL('assets/audio/',out),{recursive:true});
+for(const name of ['bubble-01.wav','bubble-02.wav','bubble-03.wav','bubble-04.wav','source.json'])
+  await copyFile(new URL('assets/audio/'+name,root),new URL('assets/audio/'+name,out));
 for (const name of ['timeline', 'sync']) {
   await copyFile(new URL('classroom/' + name + '.js', root), new URL('room-' + name + '.js', out));
 }

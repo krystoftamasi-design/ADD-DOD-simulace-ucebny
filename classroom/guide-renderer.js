@@ -1,9 +1,9 @@
 import {createCanvasCharacter,thinkingExpression} from './mascot-canvas.js?v=native-shape-1';
 import {randomAt} from './procedural-body.js';
 import {screenTiles} from './bubble-flight.js';
-import {createSpawnModel} from './spawn-model.js';
+import {createSpawnModel,gatherAt} from './spawn-model.js';
 import {sampleResetHold,sampleResetBurst,resetTiles} from './reset-model.js';
-import {createWorkPresentation,exhibitionImageFrame,loadWorkFonts,selectedWorkImage} from './work-presentation.js';
+import {createWorkPresentation,exhibitionImageFrame,loadWorkFonts,selectedWorkImage,drawProjectionPrompt,projectionPromptOpacity,drawProjectionListening} from './work-presentation.js';
 // Update the classic display dispatcher together with this renderer on a live edit.
 import './timeline.js';
 
@@ -11,6 +11,8 @@ const clamp=value=>Math.max(0,Math.min(1,value));
 const smooth=value=>{const t=clamp(value);return t*t*(3-2*t);};
 const tourTiles={...screenTiles,projector:[1,3]};
 const GATHER_MS=950,LAUNCH_MS=GATHER_MS+350;
+// Match the original body's circle radius, about 7.4% of the mascot's width.
+const BODY_BUBBLE_RADIUS=.074;
 
 export function workImageFrame(width,height,imageWidth,imageHeight){
   return exhibitionImageFrame(width,height,imageWidth,imageHeight);
@@ -21,6 +23,7 @@ export function workCorner(width,height,imageWidth,imageHeight,corner,frame=work
     y:Math.max(padding,Math.min(height-padding,frame.y+(corner&2?frame.height-size/2:size/2)))/height,size};
 }
 function anchor(node){
+  if(node.point)return node.point;
   if(node.station==='projector')return {x:.5,y:.42,size:.46};
   const image=node.project.images?.[0];
   const corner=workCorner(16/9,1,image?.width||16,image?.height||9,node.corner);
@@ -33,7 +36,7 @@ function tileRoute(from,to){
     const id=route.at(-1);if(id===to)return route;
     for(const [key,tile] of Object.entries(tourTiles)){
       const next=key==='projector'?key:Number(key),current=tourTiles[id];
-      if(next==='projector'&&from!=='projector')continue;
+      if(next==='projector'&&from!=='projector'&&to!=='projector')continue;
       if(!seen.has(next)&&Math.abs(tile[0]-current[0])+Math.abs(tile[1]-current[1])===1){seen.add(next);queue.push([...route,next]);}
     }
   }
@@ -66,7 +69,7 @@ export function createWorkTour(guide){
   const assignments=guide.assignments||(guide.project?[{station:guide.station,project:guide.project}]:[]);
   const unique=new Map(assignments.filter(a=>screenTiles[a.station]&&a.project).map(a=>[Number(a.station),{...a,station:Number(a.station)}]));
   const works=[...unique.values()].sort((a,b)=>a.station-b.station);
-  let seed=Number(guide.session)||1;
+  let seed=Number(guide.tourSession??guide.session)||1;
   for(const work of works)for(const char of String(work.project.id||work.project.title))seed=(Math.imul(seed,31)+char.charCodeAt(0))|0;
   const visits=[];
   for(let round=0;round<3;round++){
@@ -98,7 +101,7 @@ function flightPose(leg,time,station,width,height,imageWidth,imageHeight,frame){
   // Dock at the real image corner, including letterboxing and square displays.
   // Keep this correction at zero while the body overlaps a shared screen edge.
   for(const [node,weight] of [[leg.from,1-smooth(u/.22)],[leg.to,smooth((u-.78)/.22)]]){
-    if(node.station!==station||station==='projector'||!weight)continue;
+    if(node.point||node.station!==station||station==='projector'||!weight)continue;
     const a=anchor(node),p=workCorner(width,height,imageWidth,imageHeight,node.corner,frame),r=size/2;
     const inside=smooth((Math.min(x*width,(1-x)*width,y*height,(1-y)*height)/r-1)/.2)*weight;
     x+=(p.x-a.x)*inside;y+=(p.y-a.y)*inside;size+=(p.size-a.size*width)*inside;
@@ -108,11 +111,12 @@ function flightPose(leg,time,station,width,height,imageWidth,imageHeight,frame){
 function delayedBubbles(leg,time,station,width,height,imageWidth,imageHeight,frame){
   const amount=smooth(time/300)*(1-smooth((time-leg.flight)/280));
   if(!amount)return [];
+  const size=flightPose(leg,time,station,width,height,imageWidth,imageHeight,frame).size;
   return Array.from({length:7},(_,i)=>{
     const delay=75+155*randomAt(i,173),p=flightPose(leg,time-delay,station,width,height,imageWidth,imageHeight,frame);
     const angle=randomAt(i,179)*Math.PI*2,offset=p.size*.23;
     return {x:p.x+Math.cos(angle)*offset/width,y:p.y+Math.sin(angle)*offset/height,
-      radius:p.size*(.16+.07*randomAt(i,181))*amount};
+      radius:size*BODY_BUBBLE_RADIUS*(.95+.10*randomAt(i,181))*amount};
   });
 }
 export function sampleWorkTour(tour,age,station,width,height,imageWidth=16,imageHeight=9,frame){
@@ -140,6 +144,42 @@ export function sampleWorkTour(tour,age,station,width,height,imageWidth=16,image
   const stretch=Math.sin(Math.PI*u);
   return {x,y,size,trail,phase:'flight',closed:false,blinkEnabled:false,gazeX:Math.cos(heading)*25,gazeY:Math.sin(heading)*20,
     rotation:Math.sin(heading)*.12*stretch,sx:1+.08*stretch,sy:1/(1+.08*stretch)};
+}
+
+export function createRecallTour(source,startedAt){
+  const tour=createWorkTour(source),returnAt=startedAt+1000;
+  const age=Math.max(0,returnAt-(source.tourPauseMs||0)-(source.revealAt||0));
+  let from={station:'projector',point:{x:.5,y:.42,size:.46}};
+  for(const station of ['projector',...Object.keys(screenTiles).map(Number)]){
+    const pose=sampleWorkTour(tour,age,station,1600,900);
+    if(pose&&pose.x>=0&&pose.x<=1&&pose.y>=0&&pose.y<=1){
+      from={station,point:{x:pose.x,y:pose.y,size:pose.size/1600}};break;
+    }
+  }
+  const to={station:'projector'},path=flightPath(from,to),length=path.at(-1).distance;
+  const flight=from.station==='projector'?0:900+Math.min(700,length*170);
+  return {source,tour,returnAt,initial:{from,to,path,length,flight,start:0,end:Infinity},legs:[],duration:Infinity};
+}
+export function sampleRecallTour(plan,now,station,width,height,imageWidth=16,imageHeight=9,frame){
+  if(now<plan.returnAt)return sampleWorkTour(plan.tour,Math.max(0,now-(plan.source.tourPauseMs||0)-(plan.source.revealAt||0)),station,width,height,imageWidth,imageHeight,frame);
+  const elapsed=now-plan.returnAt;
+  if(elapsed<plan.initial.flight){
+    const pose=sampleWorkTour(plan,LAUNCH_MS+elapsed,station,width,height,imageWidth,imageHeight,frame);
+    // Start at the displayed image corner, including portrait images and square monitors.
+    if(pose&&station===plan.initial.from.station&&elapsed<180){
+      const age=Math.max(0,plan.returnAt-(plan.source.tourPauseMs||0)-(plan.source.revealAt||0));
+      const origin=sampleWorkTour(plan.tour,age,station,width,height,imageWidth,imageHeight,frame);
+      if(origin){
+        const p=plan.initial.from.point,blend=1-smooth(elapsed/180),size=pose.size;
+        const dx=(origin.x-p.x)*blend,dy=(origin.y-p.y)*blend;
+        pose.x+=dx;pose.y+=dy;pose.size+=(origin.size-p.size*width)*blend;
+        pose.rotation+=(origin.rotation||0)*blend;
+        for(const bubble of pose.trail){bubble.x+=dx;bubble.y+=dy;bubble.radius*=pose.size/size;}
+      }
+    }
+    return pose;
+  }
+  return station==='projector'?{x:.5,y:.42,size:width*.46,rotation:0,sx:1,sy:1,closed:false,blinkEnabled:true,gazeX:-15,gazeY:48}:null;
 }
 // Surfaces unfold away from the projection. A single circular perimeter
 // reaches each monitor at its bottom edge before climbing towards its top.
@@ -222,7 +262,7 @@ export function collapseMotion(progress){
 export function createGuideRenderer(character){
   const mascot=createCanvasCharacter(character),idleParticles=createSpawnModel(character),images=new Map();
   const presentation=createWorkPresentation(),fontsReady=loadWorkFonts().then(()=>presentation.clear()),views=new Map();
-  let tourKey='',tour;
+  let tourKey='',tour,recallKey='',recallTour;
   let burstOriginKey='',burstOrigin;
   function image(path){
     if(!images.has(path)){
@@ -253,7 +293,7 @@ export function createGuideRenderer(character){
   }
   function tourFor(guide){
     const assignments=guide.assignments||(guide.project?[{station:guide.station,project:guide.project}]:[]);
-    const key=JSON.stringify([guide.session,assignments.map(a=>[a.station,a.project?.id||a.project?.title,a.project?.images?.[0]?.url])]);
+    const key=JSON.stringify([guide.tourSession??guide.session,assignments.map(a=>[a.station,a.project?.id||a.project?.title,a.project?.images?.[0]?.url])]);
     if(key!==tourKey){tourKey=key;tour=createWorkTour(guide);}
     return tour;
   }
@@ -264,6 +304,21 @@ export function createGuideRenderer(character){
     const time=now-(guide.tourPauseMs||0);
     const pose=sourcePose(guide,time,station,width,height,img);
     paintTour(ctx,width,height,station,pose,time);
+    return pose;
+  }
+  function drawRecall(ctx,width,height,station,guide,now){
+    const {source,startedAt}=guide.recall;
+    const key=JSON.stringify([guide.session,startedAt,source.assignments?.map(a=>[a.station,a.project?.id])]);
+    if(key!==recallKey){recallKey=key;recallTour=createRecallTour(source,startedAt);}
+    if(station==='projector')ctx.clearRect(0,0,width,height);
+    else{ctx.fillStyle='#030504';ctx.fillRect(0,0,width,height);}
+    const img=station==='projector'?null:paintWork(ctx,width,height,station,source);
+    const pose=sampleRecallTour(recallTour,now,station,width,height,img?.naturalWidth||16,img?.naturalHeight||9,img?.frame);
+    paintTour(ctx,width,height,station,pose,now);
+    if(station==='projector'&&guide.phase==='listening')drawProjectionListening(ctx,width,height);
+    else if(station==='projector'&&now>=recallTour.returnAt+recallTour.initial.flight)
+      label(ctx,guide.message||'',width*.5,height*.89,width*.9,Math.round(height*.045),character.palette.body);
+    return true;
   }
   function paintTour(ctx,width,height,station,pose,now){
     if(!pose)return;
@@ -354,7 +409,7 @@ export function createGuideRenderer(character){
     if(station==='projector')mascot(paint,now/1000,{x:width*.5,y:height*.42,size:width*.46*bodyScale,bodyAlpha:0,...thinkingExpression(age),cutoutInk:true});
     paint.restore();
   }
-  return {ready,prepare,fontsReady,revealDuration:REVEAL_MS,ownsPresentation:true,imageStepAt(x,y,station,guide){
+  return {ready,prepare,fontsReady,audioModel:{bloomKernels,createWorkTour,sampleWorkTour,gatherAt},revealDuration:REVEAL_MS,ownsPresentation:true,imageStepAt(x,y,station,guide){
     const active=views.get(station);
     if(guide?.phase!=='presenting'||guide.resetGesture||!active||active.count<2||active.session!==guide.session)return 0;
     for(const [step,button] of [[-1,active.view.previous],[1,active.view.next]])
@@ -366,8 +421,12 @@ export function createGuideRenderer(character){
     if(presentation.scroll(active.view,x,y,delta))return 0;
     return active.count>1?(delta>0?1:-1):0;
   },draw(ctx,width,height,station,guide,now,spawn){
-    if(!guide||guide.phase==='idle')return false;
+    if(!guide||guide.phase==='idle'){
+      if(station==='projector'&&!spawn?.enabled){ctx.clearRect(0,0,width,height);drawProjectionPrompt(ctx,width,height,now,projectionPromptOpacity(spawn));return true;}
+      return false;
+    }
     if(guide.resetGesture)return drawReset(ctx,width,height,station,guide,now);
+    if(guide.recall)return drawRecall(ctx,width,height,station,guide,now);
     if(['finishing','transcribing','thinking'].includes(guide.phase)){
       if(guide.prepared)prepare(guide,station).catch(()=>{});
       if(station==='projector')ctx.clearRect(0,0,width,height);else {ctx.fillStyle='#030504';ctx.fillRect(0,0,width,height);}
@@ -378,7 +437,7 @@ export function createGuideRenderer(character){
         ctx.clearRect(0,0,width,height);
         const age=Math.max(0,now-(guide.tourPauseMs||0)-guide.revealAt);
         if(age<GATHER_MS)bloom(ctx,width,height,station,guide,now,age/GATHER_MS,true);
-        else drawTour(ctx,width,height,station,guide,now);
+        else if(!drawTour(ctx,width,height,station,guide,now))drawProjectionPrompt(ctx,width,height,now,projectionPromptOpacity(spawn));
         return true;
       }
       // The spawn renderer owns the body throughout gathering and dispersal.
@@ -386,7 +445,8 @@ export function createGuideRenderer(character){
       if(spawn?.phase==='idle'&&['presenting','empty','error'].includes(guide.phase))return false;
       ctx.clearRect(0,0,width,height);
       mascot(ctx,now/1000,{x:width*.5,y:height*.43,size:width*.46,cutoutInk:true,closed:['finishing','thinking','transcribing'].includes(guide.phase),gazeX:-15,gazeY:48});
-      label(ctx,guide.message||'',width*.5,height*.87,width*.9,Math.round(height*.045),'#cddc29');
+      if(guide.phase==='listening')drawProjectionListening(ctx,width,height);
+      else label(ctx,guide.message||'',width*.5,height*.87,width*.9,Math.round(height*.045),'#cddc29');
       return true;
     }
     if(guide.phase!=='presenting')return false;

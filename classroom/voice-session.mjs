@@ -1,3 +1,5 @@
+import {MIN_RECORDING_MS} from '../src/listening.js';
+
 export class VoiceSession {
   constructor({classify,transcribe,onChange,stations=()=>[],clock=()=>performance.now()}){
     this.classify=classify;this.transcribe=transcribe;this.onChange=onChange;this.stations=stations;this.readyImages=new Map();
@@ -9,19 +11,28 @@ export class VoiceSession {
   begin({holdToTalk=false,replace=false}={}){
     if(!this.state.demo&&['finishing','transcribing','thinking'].includes(this.state.phase))return false;
     if(!replace&&this.state.phase==='listening')return false;
-    this.owner=null;this.serial++;this.phaseSince=this.clock();
-    this.state={phase:'listening',holdToTalk,session:this.serial,transcript:'',message:'Poslouchám…'};
+    const now=this.clock();
+    const source=this.state.phase==='presenting'?{...this.state,resetGesture:null,
+      tourPauseMs:(this.state.tourPauseMs||0)+(this.state.resetGesture?.phase==='holding'?Math.max(0,now-this.state.resetGesture.startedAt):0)}:null;
+    const recall=this.state.recall||(source?{source,startedAt:now}:null);
+    this.owner=null;this.serial++;this.phaseSince=now;
+    this.state={phase:'listening',holdToTalk,session:this.serial,transcript:'',message:'Poslouchám…',recall};
     this.onChange(this.state);return true;
   }
   claim(session,owner){if(this.state.demo||session!==this.serial||this.state.phase!=='listening'||this.owner&&this.owner!==owner)return false;this.owner=owner;return true;}
-  finish(){if(this.state.phase==='listening')this.set({phase:'finishing',message:'Dokončuji nahrávání…'});}
+  finish(){
+    if(this.state.phase!=='listening')return;
+    // A short tap cancels the session before any recorder can upload its audio.
+    if(this.state.holdToTalk&&this.clock()-this.phaseSince<MIN_RECORDING_MS){this.cancelRecording();return;}
+    this.set({phase:'finishing',message:'Dokončuji nahrávání…'});
+  }
   tick(){
     if(this.state.demo&&!this.state.prepared)return;
     const elapsed=this.clock()-this.phaseSince;
     if(this.state.prepared&&this.state.phase==='thinking'&&this.clock()-this.state.thinkingAt>=6000&&this.state.assignments.every(a=>this.readyImages.get(a.station)===this.imageUrl(a.project))){this.set({phase:'presenting',revealAt:this.clock(),prepared:false});return;}
     if(this.state.prepared&&this.clock()-this.state.preparedAt>30000){this.fail(this.serial,'Obrázek se nepodařilo načíst na všech obrazovkách. Zkus požadavek znovu.');return;}
     if(this.state.phase==='listening'&&elapsed>=25000)this.finish();
-    else if(this.state.phase==='finishing'&&elapsed>=10000)this.reset();
+    else if(this.state.phase==='finishing'&&elapsed>=10000)this.cancelRecording();
   }
   imageUrl(project){return project?.images?.[0]?.url||null;}
   changeImage(session,station,step){
@@ -42,6 +53,13 @@ export class VoiceSession {
     return {ready:assignments.filter(a=>this.readyImages.get(a.station)===this.imageUrl(a.project)).map(a=>a.station),waiting:assignments.filter(a=>this.readyImages.get(a.station)!==this.imageUrl(a.project)).map(a=>a.station)};
   }
   reset(){this.serial++;this.phaseSince=this.clock();this.state={phase:'idle',session:this.serial,transcript:'',message:''};this.onChange(this.state);}
+  cancelRecording(){
+    const source=this.state.recall?.source;
+    if(!source){this.reset();return;}
+    this.owner=null;this.serial++;this.phaseSince=this.clock();
+    this.state={...source,session:this.serial,tourSession:source.tourSession??source.session};
+    this.onChange(this.state);
+  }
   preview(scene,projects=[],category=null){
     // A new session cancels pending model work and any previous microphone owner.
     this.serial++;this.owner=null;this.readyImages=new Map();this.phaseSince=this.clock();
@@ -69,11 +87,13 @@ export class VoiceSession {
   async submit({session,text,audio}){
     if(this.state.demo||session!==this.serial||!['listening','finishing'].includes(this.state.phase))throw Object.assign(new Error('Tento požadavek už není aktivní.'),{status:409});
     try{
-      this.set({phase:audio?'transcribing':'thinking',message:audio?'Přepisuji řeč…':'Vybírám práci…'});
+      const recalling=!!this.state.recall;
+      this.set({phase:audio?'transcribing':'thinking',message:audio?'Přepisuji řeč…':'Vybírám práci…',
+        ...(!audio&&recalling?{recall:null,thinkingAt:this.clock()}:{})});
       if(audio)text=await this.transcribe(audio);
       if(session!==this.serial)return;
       text=text?.trim();if(!text||text.length>2000)throw new Error('Zadej nebo nadiktuj krátký požadavek.');
-      this.set({phase:'thinking',transcript:text,message:'Vybírám práci…'});
+      this.set({phase:'thinking',transcript:text,message:'Vybírám práci…',...(recalling?{recall:null,thinkingAt:this.clock()}:{})});
       const result=await this.classify(text);
       if(session!==this.serial)return;
       const candidates=result.projects?.length?result.projects:result.project?[result.project]:[];

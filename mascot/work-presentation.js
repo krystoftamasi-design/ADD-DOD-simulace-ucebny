@@ -1,6 +1,60 @@
+import {randomAt} from './procedural-body.js';
+
 // Canvas counterpart of pruvodce/vystava.css (PR #3). All classroom surfaces
 // share this layout, including the image rectangle used by the mascot's tour.
 const limit=(value,min,max)=>Math.max(min,Math.min(max,value));
+export const projectionTopics=['UI/UX','3D','nejlepší','webové','animované','experimentální','typografické','nejnovější'];
+export function projectionPromptLayout(ctx,width,height){
+  ctx.save();
+  const base=Math.min(width*.075,height*.15);
+  ctx.font=`800 ${base}px NeueMachina,Arial,sans-serif`;
+  const longest=Math.max(ctx.measureText('Zeptej se Bublíka').width,...projectionTopics.map(topic=>ctx.measureText(`na naše ${topic} práce`).width));
+  const size=base*Math.min(1,width*.88/longest),lineHeight=size*1.45;
+  const firstY=height*.38-lineHeight*.5,secondY=height*.38+lineHeight*.5;
+  ctx.restore();
+  const textWidth=longest*size/base;
+  return {size,firstY,secondY,left:(width-textWidth)/2,right:(width+textWidth)/2,top:firstY-size*.65,bottom:secondY+size*.65};
+}
+export function projectionPromptOpacity(spawn,amount=0){
+  if(spawn?.fingerPresent||spawn?.enabled!==false&&spawn?.amount?.to>0)return 0;
+  const t=limit(amount/.03,0,1);
+  return 1-t*t*(3-2*t);
+}
+export function projectionPromptBubble(id,seconds,layout,width,height,extent){
+  const phase=randomAt(id,911)*Math.PI*2;
+  const angle=phase+seconds*(.12+.12*randomAt(id,919))*(randomAt(id,929)<.5?-1:1)+.2*Math.sin(seconds*.19+phase);
+  const dx=Math.cos(angle),dy=Math.sin(angle),cx=width/2,cy=(layout.top+layout.bottom)/2;
+  const gap=layout.size*.15;
+  const inner=Math.min(((layout.right-layout.left)/2+gap+extent)/Math.abs(dx),((layout.bottom-layout.top)/2+gap+extent)/Math.abs(dy));
+  const outer=Math.min((width/2-extent)/Math.abs(dx),(dy>0?height-cy-extent:cy-extent)/Math.abs(dy));
+  const wander=.5+.4*Math.sin(seconds*.23+phase*1.7);
+  const distance=inner+Math.max(0,outer-inner)*wander;
+  return {x:cx+dx*distance,y:cy+dy*distance};
+}
+export function drawProjectionPrompt(ctx,width,height,now,opacity=1,layout){
+  if(opacity<=0)return;
+  const period=6000,elapsed=((now%period)+period)%period;
+  const index=((Math.floor(now/period)%projectionTopics.length)+projectionTopics.length)%projectionTopics.length;
+  const fade=limit(Math.min(elapsed,period-elapsed)/240,0,1);
+  const {size,firstY,secondY}=layout||projectionPromptLayout(ctx,width,height);
+  ctx.save();ctx.globalAlpha*=opacity;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font=`800 ${size}px NeueMachina,Arial,sans-serif`;
+  ctx.fillStyle='#fff';ctx.fillText('Zeptej se Bublíka',width*.5,firstY);
+  ctx.globalAlpha*=fade*fade*(3-2*fade);
+  ctx.fillStyle='#cddc29';ctx.fillText(`na naše ${projectionTopics[index]} práce`,width*.5,secondY);
+  ctx.restore();
+}
+export function drawProjectionListening(ctx,width,height){
+  ctx.save();
+  const base=height*.045;
+  ctx.font=`800 ${base}px NeueMachina,Arial,sans-serif`;
+  const size=base*Math.min(1,width*.17/ctx.measureText('Poslouchám').width);
+  ctx.font=`800 ${size}px NeueMachina,Arial,sans-serif`;
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='bottom';
+  // Flick's upper edge is at 66% of the projected surface height.
+  ctx.fillText('Poslouchám',width*.5,height*.65);
+  ctx.restore();
+}
 export function cleanWorkText(value){
   return typeof value==='string'?value.replace(/<br\s*\/?>/gi,'\n').replace(/<\/(?:p|div|li|h[1-6])\s*>/gi,'\n\n')
     .replace(/<[^>]*>/g,'').replace(/[\t\f\v ]+/g,' ').replace(/\n[ \t]+/g,'\n').replace(/\n{3,}/g,'\n\n').trim():'';

@@ -6,24 +6,27 @@ import {createCanvasCharacter,thinkingExpression} from '../mascot/mascot-canvas.
 import {createSpawnRenderer} from '../mascot/spawn-renderer.js';
 import {randomAt} from '../mascot/procedural-body.js';
 import {screenTiles} from '../mascot/bubble-flight.js';
-import {createSpawnModel} from '../mascot/spawn-model.js';
+import {createSpawnModel,gatherAt} from '../mascot/spawn-model.js';
 import {sampleResetHold,sampleResetBurst,resetTiles} from '../mascot/reset-model.js';
-import {createWorkPresentation,exhibitionImageFrame,loadWorkFonts,selectedWorkImage} from '../mascot/work-presentation.js';
+import {createWorkPresentation,exhibitionImageFrame,loadWorkFonts,selectedWorkImage,drawProjectionPrompt,projectionPromptOpacity,drawProjectionListening} from '../mascot/work-presentation.js';
 const character=JSON.parse(readFileSync(new URL('../mascot/mascot.json',import.meta.url),'utf8'));
 class Context {
  constructor(){this.ops=[];this.ellipses=[];this.stack=[];this.globalAlpha=1;this.globalCompositeOperation='source-over';}
  save(){this.stack.push({globalAlpha:this.globalAlpha,globalCompositeOperation:this.globalCompositeOperation,fillStyle:this.fillStyle,strokeStyle:this.strokeStyle});}
  restore(){Object.assign(this,this.stack.pop());}
- translate(){} rotate(){} scale(){} beginPath(){} arc(){} ellipse(...args){this.ellipses.push(args);} clip(){} clearRect(){}
+ translate(){} rotate(){} scale(){} beginPath(){} arc(){} rect(){} ellipse(...args){this.ellipses.push(args);} clip(){} clearRect(){}
  record(kind,color){this.ops.push({kind,color,alpha:this.globalAlpha});}
  fill(){this.record('fill',this.fillStyle);} stroke(){this.record('stroke',this.strokeStyle);}
  fillRect(){this.record('rect',this.fillStyle);} fillText(){this.record('text',this.fillStyle);}
  drawImage(){this.record('image');}
+ measureText(text){return {width:text.length*8};}
 }
 function renderer(){
  const layers=[],poses=[];
  const capture=character=>{const draw=createCanvasCharacter(character);return (ctx,time,pose)=>{poses.push(pose);draw(ctx,time,pose);};};
- const scope={createCanvasCharacter:capture,thinkingExpression,randomAt,screenTiles,createSpawnModel,sampleResetHold,sampleResetBurst,resetTiles,createWorkPresentation,exhibitionImageFrame,loadWorkFonts,selectedWorkImage,document:{createElement(){const ctx=new Context();layers.push(ctx);return {getContext:()=>ctx};}}};
+ const scope={URL,location:{port:'8765',origin:'http://127.0.0.1:8765'},createCanvasCharacter:capture,thinkingExpression,randomAt,screenTiles,createSpawnModel,gatherAt,sampleResetHold,sampleResetBurst,resetTiles,createWorkPresentation,exhibitionImageFrame,loadWorkFonts,selectedWorkImage,drawProjectionPrompt,projectionPromptOpacity,drawProjectionListening,
+   Image:class {complete=true;naturalWidth=1600;naturalHeight=900;set src(value){this.onload?.();}},
+   document:{createElement(){const ctx=new Context();layers.push(ctx);return {getContext:()=>ctx};}}};
  vm.runInNewContext(readFileSync(new URL('./guide-renderer.js',import.meta.url),'utf8').replace(/^import .*;$/gm,'').replaceAll('export function','function'),scope);
  return {draw:scope.createGuideRenderer(character).draw,layers,poses};
 }
@@ -62,4 +65,14 @@ test('projection contraction retains the original body and face until takeoff',(
   assert(poses.some(p=>p.eyesAlpha!==0&&p.closed===false));
   assert(ctx.ops.filter(op=>op.alpha>0).every(op=>op.alpha===1));
  }
+});
+test('previous work remains painted during recording and transcription, then gives way to thinking',()=>{
+ const {draw}=renderer(),project={id:'old',title:'Old work',images:[{url:'/old'}]};
+ const source={phase:'presenting',session:31,revealAt:0,projects:[project],assignments:[{station:2,project}]};
+ for(const phase of ['listening','finishing','transcribing']){
+  const ctx=new Context();draw(ctx,1600,900,2,{phase,session:32,recall:{source,startedAt:10000}},13500,{enabled:true});
+  assert.equal(ctx.ops.filter(op=>op.kind==='image').length,1,phase);
+ }
+ const ctx=new Context();draw(ctx,1600,900,2,{phase:'thinking',thinkingAt:14000,recall:null},14200,{enabled:true});
+ assert.equal(ctx.ops.filter(op=>op.kind==='image').length,0);
 });

@@ -3,12 +3,35 @@ import {mascotBounds} from './cursor-follow.js';
 import {sampleFlight,neighbours} from './bubble-flight.js';
 
 export const spawnSurfaces = [1,2,3,4,5,6,7,8,9,10,'projector'];
-export const spawnSettings={dotsPerMonitor:12,projectionDots:22};
+export const spawnSettings={dotsPerMonitor:12,projectionDots:22,followResponseMs:80};
 export const clamp = value => Math.max(0, Math.min(1, value));
 export const smooth = value => {const t=clamp(value);return t*t*(3-2*t);};
-export function gatherAt(spawn, now) {
+export function gatherMotion(spawn, now) {
   const change=spawn.amount;
-  return change.from+(change.to-change.from)*smooth((now-change.at)/change.duration);
+  if(change.responseMs){
+    // Analytic critically damped follow: the shared clock gives every display
+    // the same position and velocity, without frame-by-frame integration.
+    const seconds=Math.max(0,now-change.at)/1000,omega=1000/change.responseMs;
+    const offset=change.from-change.to,velocity=change.velocity||0;
+    if(seconds===0)return {value:change.from,velocity};
+    const slope=velocity+omega*offset,decay=Math.exp(-omega*seconds);
+    const value=change.to+(offset+slope*seconds)*decay;
+    const speed=(velocity-omega*slope*seconds)*decay;
+    if(value<0||value>1)return {value:clamp(value),velocity:0};
+    if(Math.abs(value-change.to)<.0001&&Math.abs(speed)<.001)return {value:change.to,velocity:0};
+    return {value,velocity:speed};
+  }
+  // Fixed demo clips and older snapshots keep their authored timing.
+  const duration=change.duration||1,t=clamp((now-change.at)/duration);
+  return {value:change.from+(change.to-change.from)*smooth(t),
+    velocity:(change.to-change.from)*6*t*(1-t)*1000/duration};
+}
+export function gatherAt(spawn, now) {
+  return gatherMotion(spawn,now).value;
+}
+export function followGather(spawn,target,now){
+  const motion=gatherMotion(spawn,now);
+  return {from:motion.value,to:clamp(target),velocity:motion.velocity,at:now,responseMs:spawnSettings.followResponseMs};
 }
 export function flowAt(spawn, now) {
   return spawn.flow.seconds+(spawn.phase==='idle'?Math.max(0,now-spawn.flow.at)/1000:0);

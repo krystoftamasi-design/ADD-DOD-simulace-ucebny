@@ -2,18 +2,67 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {VoiceSession} from './voice-session.mjs';
 test('contact starts recording; release finishes the same session and allows its audio upload',async()=>{
-  const phases=[];
-  const voice=new VoiceSession({stations:()=>[6,7],onChange:s=>phases.push(s.phase),transcribe:async()=> 'Ukaž web',classify:async text=>({project:{title:text,images:[]}})});
+  const phases=[];let now=0;
+  const voice=new VoiceSession({clock:()=>now,stations:()=>[6,7],onChange:s=>phases.push(s.phase),transcribe:async()=> 'Ukaž web',classify:async text=>({project:{title:text,images:[]}})});
   voice.begin({holdToTalk:true});const session=voice.serial;
   assert.equal(voice.state.phase,'listening');assert.equal(voice.state.holdToTalk,true);
   assert(voice.claim(session,'mac'));assert(!voice.claim(session,'other'));
   assert.equal(voice.begin({holdToTalk:true}),false);
-  voice.finish();assert.equal(voice.state.phase,'finishing');assert.equal(voice.serial,session);
+  now=2000;voice.finish();assert.equal(voice.state.phase,'finishing');assert.equal(voice.serial,session);
   assert(!voice.claim(session,'late-recorder'));assert.equal(voice.begin(),false);
   await voice.submit({session,audio:Buffer.from('test')});
   assert.deepEqual(phases,['listening','finishing','transcribing','thinking','thinking']);
   assert.equal(voice.state.prepared,true);
   assert.equal(voice.state.station,6);assert.equal(voice.state.transcript,'Ukaž web');
+});
+test('a contact shorter than two seconds cancels quietly and rejects its late audio',async()=>{
+  let now=0,calls=0;const phases=[];
+  const voice=new VoiceSession({clock:()=>now,onChange:s=>phases.push(s.phase),transcribe:async()=>{calls++;return 'web';},classify:async()=>{calls++;return {};}});
+  voice.begin({holdToTalk:true});const session=voice.serial;assert(voice.claim(session,'mac'));
+  now=1999;voice.finish();
+  assert.equal(voice.state.phase,'idle');assert.notEqual(voice.serial,session);
+  assert.deepEqual(phases,['listening','idle']);
+  await assert.rejects(voice.submit({session,audio:Buffer.from('tap')}));assert.equal(calls,0);
+  assert(voice.begin({holdToTalk:true}));
+});
+test('a new recording retains displayed works through transcription and removes them only for thinking',async()=>{
+  let now=10000,finishTranscription,finishSelection;
+  const voice=new VoiceSession({clock:()=>now,onChange:()=>{},
+    transcribe:()=>new Promise(resolve=>finishTranscription=resolve),classify:()=>new Promise(resolve=>finishSelection=resolve)});
+  const projects=[{id:'old',images:[{url:'/old'}]}],assignments=[{station:2,project:projects[0]}];
+  voice.set({phase:'presenting',projects,assignments,revealAt:1000,tourPauseMs:300,imageIndices:{2:{project:'old',index:0}}});
+  const previousSession=voice.serial;
+  assert(voice.begin({holdToTalk:true}));const session=voice.serial;
+  assert.equal(voice.state.phase,'listening');assert.equal(voice.state.recall.startedAt,10000);
+  assert.equal(voice.state.recall.source.session,previousSession);assert.equal(voice.state.recall.source.assignments,assignments);
+  now=12000;voice.finish();assert.equal(voice.state.recall.source.assignments,assignments);
+  const pending=voice.submit({session,audio:Buffer.from('new request')});
+  assert.equal(voice.state.phase,'transcribing');assert.equal(voice.state.recall.source.assignments,assignments);
+  now=16000;finishTranscription('Ukaž animace');await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(voice.state.phase,'thinking');assert.equal(voice.state.recall,null);assert.equal(voice.state.thinkingAt,16000);
+  assert.equal(voice.state.assignments,undefined);
+  assert.equal(voice.begin({holdToTalk:true}),false);assert.equal(voice.begin({replace:true}),false);
+  finishSelection({projects:[{id:'new'}]});await pending;
+  assert.equal(voice.state.projects[0].id,'new');
+});
+test('a short tap during presentation keeps the works and the original tour seed',()=>{
+  let now=10000;const voice=new VoiceSession({clock:()=>now,onChange:()=>{}});
+  const assignments=[{station:3,project:{id:'old'}}];
+  voice.set({phase:'presenting',assignments,revealAt:1000,tourPauseMs:250});
+  const tourSession=voice.serial;
+  voice.begin({holdToTalk:true});const recordingSession=voice.serial;
+  now=11500;voice.finish();
+  assert.equal(voice.state.phase,'presenting');assert.equal(voice.state.assignments,assignments);
+  assert.equal(voice.state.tourSession,tourSession);assert.notEqual(voice.serial,recordingSession);
+  assert.equal(voice.state.recall,undefined);
+});
+test('recording and text requests cannot interrupt finishing, transcription, or thinking',()=>{
+  for(const phase of ['finishing','transcribing','thinking']){
+    const voice=new VoiceSession({onChange:()=>{}});voice.set({phase});
+    const state=voice.state,session=voice.serial;
+    assert.equal(voice.begin({holdToTalk:true}),false);assert.equal(voice.begin({replace:true}),false);
+    assert.equal(voice.state,state);assert.equal(voice.serial,session);
+  }
 });
 test('text can replace active recording and stale uploads are rejected',async()=>{
   const voice=new VoiceSession({onChange:()=>{},classify:async()=>({project:null})});

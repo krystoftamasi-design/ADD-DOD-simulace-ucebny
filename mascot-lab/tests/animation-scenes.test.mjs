@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {animations,categories,sampleScene,transitionWindow} from '../web/animation-scenes.js';
+import {animations,categories,sampleScene,transitionWindow,followSpawn} from '../web/animation-scenes.js';
+import {gatherAt,gatherMotion} from '../../mascot/spawn-model.js';
 import {RESET_HOLD_MS,RESET_BURST_MS} from '../../classroom/hover-reset.mjs';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
@@ -55,6 +56,17 @@ test('spawn supports hover withdrawal and a held touch without prematurely trigg
   assert.equal(touch.spawn.phase,'listening');assert.equal(touch.guide.phase,'listening');
   const listen=sampleScene('listening',10).state;
   assert.equal(listen.spawn.amount.to,1);assert.equal(listen.guide.phase,'listening');
+});
+
+test('the gallery slider uses the same smooth finger follow as the real classroom',()=>{
+  const start=sampleScene('spawn',0,0).state.spawn;
+  const manual=followSpawn(start,1,false,0);
+  const middle=sampleScene('spawn',.1,.1,manual).state.spawn;
+  assert(gatherAt(middle,100)>0&&gatherAt(middle,100)<.5);
+  const withdrawal=followSpawn(middle,0,false,100);
+  const next=sampleScene('spawn',.1,.1,withdrawal).state;
+  assert.deepEqual(gatherMotion(next.spawn,100),gatherMotion(middle,100));
+  assert.equal(next.guide.phase,'idle');assert.equal(gatherAt(next.spawn,1600),0);
 });
 
 test('thinking, simultaneous 400 ms reveal and results use actual guide phases and assignments',()=>{

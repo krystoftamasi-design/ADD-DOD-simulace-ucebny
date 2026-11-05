@@ -8,6 +8,7 @@
     if(!guide)return guide;var copy={},key;for(key in guide)copy[key]=guide[key];
     if(guide.phase==='presenting')copy.assignments=(guide.projects||[guide.project]).filter(Boolean).slice(0,10).map(function(project,i){return {station:i+1,project:project};});
     if(previewImage&&previewImage.session===guide.session)copy.imageIndices=previewImage.indices;
+    if(guide.recall){copy.recall={};for(key in guide.recall)copy.recall[key]=guide.recall[key];copy.recall.source=previewGuide(guide.recall.source);}
     if(guide.resetGesture){copy.resetGesture={};for(key in guide.resetGesture)copy.resetGesture[key]=guide.resetGesture[key];copy.resetGesture.source=previewGuide(guide.resetGesture.source);}
     return copy;
   }

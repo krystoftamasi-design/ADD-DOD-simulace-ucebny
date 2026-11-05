@@ -1,3 +1,5 @@
+import {followGather} from './spawn-model.js';
+
 export const categories = [
   {id:'transitions',name:'Přechody mezi monitory',short:'Přechody'},
   {id:'utils',name:'Interakce s návštěvníkem',short:'Interakce'},
@@ -7,7 +9,7 @@ export const categories = [
 export const animations = [
   {id:'left-right',category:'transitions',name:'Mezi pracemi · doprava',duration:5,kind:'transition',note:'Aktuální organický přelet: plynulý rozjezd, opožděné kuličky a měkké dosednutí u rohu obrázku. Následuje pohled a mrknutí.'},
   {id:'right-left',category:'transitions',name:'Mezi pracemi · doleva',duration:5,kind:'transition',note:'Stejný přelet opačným směrem. Levá hrana navazuje na pravou; maskot přistane u skutečného rohu zobrazené práce.'},
-  {id:'spawn',category:'utils',name:'Spawn · přivolání Flickem',duration:10,kind:'classroom',note:'Přiblížení shlukuje volné kuličky do původního tvaru na projekci. Oddálení bez dotyku je rozptýlí. Přiblížení a dotyk lze vyzkoušet ovladači níže.'},
+  {id:'spawn',category:'utils',name:'Spawn · přivolání Flickem',duration:10,kind:'classroom',note:'Přiblížení shlukuje volné kuličky do původního tvaru na projekci. Rychlé změny prstu jemně dotahují s krátkým zpožděním, podobně jako smooth scroll. Oddálení je rozptýlí. Vyzkoušej rychle posouvat přiblížení níže.'},
   {id:'listening',category:'utils',name:'Poslouchání',duration:6,kind:'classroom',continuous:true,note:'Dotyk drží maskota na projekci s pohledem dolů. Po ukončení nahrávání navazuje přemýšlení.'},
   {id:'thinking',category:'utils',name:'Přemýšlení · popcorn',duration:6.5,kind:'classroom',note:'Dvě sekundy zavřených třesoucích se očí, pak vykulení a dvě mrknutí. Po druhém se vrátí běžný pohled. Kuličky popají do kruhu a odspodu postupně zaplňují řady monitorů.'},
   {id:'hover-reset',category:'utils',name:'Hover · rozprsknutí a restart',duration:4,kind:'classroom',note:'Podržením ruky na Z ≤ 66 % se maskot zastaví, vykulí oči a lehce bobtná na místě. Po 1,5 sekundy se rozprskne do všech monitorů a vrátí volné kuličky. Oddálení před limitem obnoví pohyb.'},
@@ -31,6 +33,10 @@ export function transitionWindow(tour,id){
   return {start,end:start+leg.flight+leg.to.dwell-250};
 }
 
+export function followSpawn(previous,amount,listening,now){
+  return {amount,listening,transition:followGather(previous,listening?1:amount,now)};
+}
+
 // Only the demonstration's inputs are scripted here. Painting and motion are
 // delegated to the same timeline, guide and spawn renderers as the simulator.
 export function sampleScene(id,time,bodyTime=time,manualSpawn=null,revealDuration=400,transition=null){
@@ -50,6 +56,7 @@ export function sampleScene(id,time,bodyTime=time,manualSpawn=null,revealDuratio
     const amount=id==='listening'?1:manualSpawn?clamp(manualSpawn.amount):smooth((t-1.5)/2)*(1-smooth((t-6)/2));
     const listening=id==='listening'||manualSpawn?.listening;
     spawn.amount.from=spawn.amount.to=amount;
+    if(manualSpawn?.transition)spawn.amount=manualSpawn.transition;
     spawn.phase=listening?'listening':amount>.015?'gathering':'idle';
     state.guide={phase:listening?'listening':'idle'};
     label=listening?'DOTEK · POSLOUCHÁNÍ':amount>.015?'PŘIBLÍŽENÍ · SHLUKOVÁNÍ':'VOLNÉ KULIČKY';

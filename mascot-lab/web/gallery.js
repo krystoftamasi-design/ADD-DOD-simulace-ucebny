@@ -1,5 +1,5 @@
 import {watchModules} from './live-edit.js?v=live-r1';
-let animations=[],categories=[],sampleScene;
+let animations=[],categories=[],sampleScene,followSpawn;
 
 const $ = id => document.getElementById(id);
 const seconds = value => value.toFixed(1).replace('.', ',');
@@ -114,7 +114,7 @@ async function main() {
     }catch(error){Object.assign(window,previous);throw error;}
     const changed=JSON.stringify(animations)!==JSON.stringify(scenes.animations)||JSON.stringify(categories)!==JSON.stringify(scenes.categories);
     const filter=$('filters').querySelector('[aria-pressed="true"]')?.dataset.filter||'all';
-    animations=scenes.animations;categories=scenes.categories;sampleScene=scenes.sampleScene;renderScene=next;
+    animations=scenes.animations;categories=scenes.categories;sampleScene=scenes.sampleScene;followSpawn=scenes.followSpawn;renderScene=next;
     if(changed){
       buildLibrary();
       $('filters').querySelector(`[data-filter="${filter}"]`)?.click();
@@ -159,7 +159,8 @@ main().catch(error => {$('load-status').textContent = `Náhled se nepodařilo na
 
 function setSpawn(amount,listening=false){
   if(!detail||detail.animation.id!=='spawn')return;
-  detail.manualSpawn={amount,listening};detail.playing=true;
+  const previous=sampleScene('spawn',detail.time,detail.bodyTime,detail.manualSpawn).state.spawn;
+  detail.manualSpawn=followSpawn(previous,amount,listening,detail.bodyTime*1000);detail.playing=true;
   $('spawn-proximity').value=String(amount*100);
   $('spawn-value').textContent=listening?'Poslouchám':Math.round(amount*100)+' %';
   paintDetail();

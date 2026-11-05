@@ -51,3 +51,34 @@ test('cyclic imports fail promptly instead of hanging the polling loop',async()=
   const graph=new Map([['http://localhost/room/main.js',"import './main.js';"]]);
   await assert.rejects(importModuleGraph(graph,entries),/Cyklick/);
 });
+
+test('unchanged animation versions transfer no module bodies, while an edited dependency still reloads',async()=>{
+  let version='first',reads=0,checks=0,applied=0;
+  const files={...initial};
+  const live=createModuleReloader({entries,versionUrl:'http://localhost/api/animation-version',
+    versionRead:async()=>{checks++;return version;},read:async url=>{reads++;return files[url];},load:async()=>({}),apply(){applied++;}});
+  await live.refresh();assert.equal(reads,3);assert.equal(applied,1);
+  for(let i=0;i<20;i++)await live.refresh();
+  assert.equal(checks,21);assert.equal(reads,3);assert.equal(applied,1);
+  files['http://localhost/room/shared.js']='export const seed=6;';version='second';
+  await live.refresh();assert.equal(reads,6);assert.equal(applied,2);
+});
+test('a failed new version retains the old renderer and a later save recovers',async()=>{
+  let version='first',source='good',active,loads=0;
+  const files={...initial};
+  const live=createModuleReloader({entries,versionUrl:'http://localhost/api/animation-version',versionRead:async()=>version,
+    read:async url=>files[url],load:async()=>{loads++;if(source==='bad')throw new SyntaxError('bad edit');return source;},apply(value){active=value;}});
+  await live.refresh();source='bad';version='bad';
+  // A real edit changes the module graph as well as the server version.
+  files['http://localhost/room/shared.js']='export const seed=4;';
+  await live.refresh();assert.equal(active,'good');await live.refresh();assert.equal(loads,2);
+  source='fixed';version='fixed';files['http://localhost/room/shared.js']='export const seed=5;';
+  await live.refresh();assert.equal(active,'fixed');
+});
+test('static preview servers without a version endpoint preserve dependency polling',async()=>{
+  let version=null,reads=0;
+  const live=createModuleReloader({entries,versionUrl:'http://localhost/api/animation-version',versionRead:async()=>version,
+    read:async url=>{reads++;return initial[url];},load:async()=>({}),apply(){}});
+  await live.refresh();await live.refresh();assert.equal(reads,6);
+  version='available';await live.refresh();await live.refresh();assert.equal(reads,9);
+});

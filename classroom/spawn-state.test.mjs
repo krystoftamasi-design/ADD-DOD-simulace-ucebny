@@ -5,6 +5,16 @@ import {gatherAt,createSpawnModel,spawnSurfaces,spawnSettings} from '../mascot/s
 import {readFileSync} from 'node:fs';
 const sensor=(z,id=0)=>({connected:true,position:{x:50,y:50,z},touchId:id,touchAt:10000});
 
+test('finger presence changes immediately even at the top of the range before gathering begins',()=>{
+  const c=new SpawnController(0),idle=c.state;
+  c.update(sensor(100),100,10000);
+  assert.notEqual(c.state,idle);assert.equal(c.state.fingerPresent,true);
+  assert.equal(c.state.amount.to,0);assert.equal(gatherAt(c.state,100),0);
+  const present=c.state;c.update(sensor(100),200,10000);assert.equal(c.state,present);
+  c.update(null,300,10000);assert.equal(c.state.fingerPresent,false);
+  c.update({...sensor(100),position:{x:101,y:50,z:100}},400,10000);assert.equal(c.state.fingerPresent,false);
+});
+
 test('dense idle dots occupy every surface and merge into the original 42 body circles',()=>{
   const c=new SpawnController(0),sample=createSpawnModel(JSON.parse(readFileSync(new URL('../mascot/mascot.json',import.meta.url))));
   const idle=sample(c.state,0).filter(p=>!p.ghost);assert.equal(idle.length,10*spawnSettings.dotsPerMonitor+spawnSettings.projectionDots);assert.equal(new Set(idle.map(p=>p.surface)).size,spawnSurfaces.length);
@@ -17,7 +27,7 @@ test('approach and withdrawal interpolate from the current position without jump
   const before=gatherAt(c.state,1100);
   c.update(sensor(10),1100,10000);assert.equal(gatherAt(c.state,1100),before);
   const middle=gatherAt(c.state,1200);c.update(null,1200,10000);
-  assert.equal(gatherAt(c.state,1200),middle);assert.equal(gatherAt(c.state,2000),0);
+  assert.equal(gatherAt(c.state,1200),middle);assert.equal(gatherAt(c.state,2700),0);
 });
 test('touch starts listening and confirmed removal stops it',()=>{
   const c=new SpawnController(0);c.update(sensor(5,0),0,10000);

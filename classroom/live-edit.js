@@ -32,11 +32,22 @@ export async function importModuleGraph(graph,entries){
   try{return Object.fromEntries(await Promise.all(Object.entries(entries).map(async([name,url])=>[name,await import(compile(clean(url)))])));}
   finally{for(const url of urls.values())URL.revokeObjectURL(url);}
 }
-export function createModuleReloader({entries,apply,onStatus=()=>{},read,load=importModuleGraph}){
-  let attempted=null,busy=null,revision=0;
+async function readVersion(url){
+  // Older/static preview servers have no version endpoint; keep their live editing.
+  try{
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)return null;
+    const {version}=await response.json();return typeof version==='string'?version:null;
+  }catch{return null;}
+}
+export function createModuleReloader({entries,apply,onStatus=()=>{},read,load=importModuleGraph,versionUrl,versionRead=readVersion}){
+  let attempted=null,attemptedVersion=null,busy=null,revision=0;
   async function update(){
     try{
+      const version=versionUrl?await versionRead(versionUrl):null;
+      if(version!==null&&version===attemptedVersion)return;
       const graph=await readModuleGraph(entries,read);
+      attemptedVersion=version;
       if(equal(attempted,graph))return;
       attempted=graph;
       await apply(await load(graph,entries));

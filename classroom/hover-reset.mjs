@@ -3,13 +3,18 @@ import {resetTimings} from '../mascot/reset-model.js';
 export const RESET_HOLD_MS=resetTimings.hold,RESET_BURST_MS=resetTimings.burst;
 export class HoverReset {
   constructor(){this.reset();}
-  reset(){this.since=null;this.lastAt=null;this.latched=false;}
+  reset(){this.since=null;this.lastAt=null;this.latched=false;this.withdrawalRequired=false;}
+  requireWithdrawal(){this.since=null;this.withdrawalRequired=true;}
   update(sensor,now,{enabled=true,touching=false}={}){
     if(this.lastAt!==null&&now-this.lastAt>400)this.since=null;
     this.lastAt=now;
     const z=sensor?.position?.z;
     const valid=sensor?.connected===true&&Number.isFinite(z)&&z>=0&&z<=100;
     const pressed=touching||sensor?.touching===true;
+    if(this.withdrawalRequired){
+      if(!valid||z>72)this.withdrawalRequired=false;
+      this.since=null;return false;
+    }
     if(this.latched){
       if(!valid||z>72||pressed)this.latched=false;
       return false;
@@ -24,6 +29,11 @@ export class HoverReset {
 // Only stage boundaries are sent over the wire; clients animate from the shared
 // timestamps. Keep the old guide until the burst finishes so it has an origin.
 export function advanceResetGesture(hover,voice,spawn,sensor,now,{enabled=true,touching=false}={}){
+  // Lifting off the plate ends recording. The same lingering hand must not
+  // become a new reset gesture while that recording is being processed.
+  if(['listening','finishing','transcribing','thinking'].includes(voice.state.phase)){
+    hover.requireWithdrawal();enabled=false;
+  }
   const current=voice.state.resetGesture;
   if(current?.phase==='burst'){
     if(now-current.startedAt<current.duration)return null;
@@ -41,7 +51,7 @@ export function advanceResetGesture(hover,voice,spawn,sensor,now,{enabled=true,t
   }
   if(hover.since!==null&&!current){
     const guide=voice.state;
-    const source={phase:guide.phase,session:guide.session,revealAt:guide.revealAt,thinkingAt:guide.thinkingAt,
+    const source={phase:guide.phase,session:guide.session,tourSession:guide.tourSession,revealAt:guide.revealAt,thinkingAt:guide.thinkingAt,
       assignments:guide.assignments,projects:guide.projects,project:guide.project,station:guide.station,imageIndices:guide.imageIndices};
     voice.set({resetGesture:{phase:'holding',startedAt:hover.since,duration:RESET_HOLD_MS,frozenAt:now-(guide.tourPauseMs||0),source}});
     return 'hold';

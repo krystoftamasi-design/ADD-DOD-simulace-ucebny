@@ -1,0 +1,33 @@
+{
+  "source": "ES_Water, Bubbles, Bubble Burst, Drip - Epidemic Sound.wav",
+  "copyright": "Epidemic Sound",
+  "sampleRate": 48000,
+  "channels": 1,
+  "peakDb": -4,
+  "clips": [
+    {
+      "file": "bubble-01.wav",
+      "start": 0,
+      "end": 0.17,
+      "gainDb": -3.235
+    },
+    {
+      "file": "bubble-02.wav",
+      "start": 0.518,
+      "end": 0.75,
+      "gainDb": -3.305
+    },
+    {
+      "file": "bubble-03.wav",
+      "start": 1.106,
+      "end": 1.31,
+      "gainDb": -3.294
+    },
+    {
+      "file": "bubble-04.wav",
+      "start": 1.667,
+      "end": 2.005,
+      "gainDb": -3.304
+    }
+  ]
+}
